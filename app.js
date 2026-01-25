@@ -1092,6 +1092,7 @@ function locateUserGPS() {
   function initMap() {
   // ✅ évite Leaflet "Map container is already initialized"
   if (window._leafletMap) {
+    map = window._leafletMap;
     return window._leafletMap;
   }
     map = L.map("map", {
@@ -1100,7 +1101,10 @@ function locateUserGPS() {
       maxZoom: 18,
     }).setView(MARCQ_CENTER, 14);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    
+
+    window._leafletMap = map; // ✅ FIX: stocke la map
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
     }).addTo(map);
@@ -1539,19 +1543,9 @@ async function startApp() {
 
   console.log("✅ App chargée (auth OK).");
 }
-async function startApp() {
-  await loadTreesFromSheets();
-  initMap();
-  addLegendToMap();
-  wireUI();
-  applyTravauxLock();
-  await loadQuartiersGeoJSON();
-  await loadCityContourAndLock();
-  renderMarkers();
-  renderList();
-  renderSecteurCount();
-  setSelected(null);
-}
+
+
+
 
 
   let carouselIndex = 0;
@@ -1687,74 +1681,6 @@ document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
 
 
-// =========================
-// HISTORIQUE INTERVENTIONS
-// =========================
-function isSecteurUser_() {
-  try { return (sessionStorage.getItem("userRole") || "").trim() === "secteur"; } catch(e) { return false; }
-}
-function formatInterventionLine_(t) {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth()+1).padStart(2,"0");
-  const dd = String(today.getDate()).padStart(2,"0");
-  const stamp = `${yyyy}-${mm}-${dd}`;
-  const parts = [
-    `dateDemande=${t.dateDemande||""}`,
-    `natureTravaux=${t.natureTravaux||""}`,
-    `dateDemandeDevis=${t.dateDemandeDevis||""}`,
-    `devisNumero=${t.devisNumero||""}`,
-    `montantDevis=${t.montantDevis||""}`,
-    `dateExecution=${t.dateExecution||""}`,
-    `remarquesTravaux=${t.remarquesTravaux||""}`,
-    `numeroBDC=${t.numeroBDC||""}`,
-    `numeroFacture=${t.numeroFacture||""}`
-  ];
-  return `[${stamp}] ` + parts.join(" | ");
-}
-function lockHistoriqueInterventionsUI_() {
-  const g = document.getElementById("historyInterventionsGroup");
-  const ta = document.getElementById("historyInterventions");
-  const btn = document.getElementById("btnValiderIntervention");
-  if (!g || !ta || !btn) return;
-  if (isSecteurUser_()) {
-    g.style.display = "none";
-    btn.style.display = "none";
-  } else {
-    g.style.display = "";
-    btn.style.display = "";
-    ta.readOnly = false;
-    ta.disabled = false;
-    btn.disabled = false;
-  }
-}
-function bindValiderIntervention_(getCurrentTree, saveCurrentTree) {
-  const btn = document.getElementById("btnValiderIntervention");
-  const hist = document.getElementById("historyInterventions");
-  if (!btn || !hist) return;
-
-  btn.addEventListener("click", async () => {
-    const tree = getCurrentTree();
-    if (!tree || !tree.id) return;
-
-    const line = formatInterventionLine_(tree);
-    const current = (hist.value || "").trim();
-    hist.value = current ? (line + "\n" + current) : line; // plus récent en haut
-    tree.historiqueInterventions = hist.value;
-
-    // vider champs travaux
-    const ids = ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"];
-    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-    // mettre aussi vide dans l'objet
-    tree.dateDemande=""; tree.natureTravaux=""; tree.dateDemandeDevis=""; tree.devisNumero=""; tree.montantDevis="";
-    tree.dateExecution=""; tree.remarquesTravaux=""; tree.numeroBDC=""; tree.numeroFacture="";
-
-    await saveCurrentTree(tree);
-  });
-}
-
-
-
 /* =========================
    ✅ HISTORIQUE INTERVENTIONS (AJOUT)
 ========================= */
@@ -1826,9 +1752,8 @@ function handleValiderIntervention_() {
 
   clearTravauxFields_();
 
-  if (typeof saveTree === "function") saveTree();
-  else if (typeof saveCurrentTree === "function") saveCurrentTree();
-  else if (typeof saveTreeToSheets === "function") saveTreeToSheets();
+  const sb = document.getElementById("saveBtn");
+  if (sb) sb.click();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
