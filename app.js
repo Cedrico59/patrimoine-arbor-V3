@@ -1090,6 +1090,10 @@ function locateUserGPS() {
   // INIT
   // =========================
   function initMap() {
+  // ✅ évite Leaflet "Map container is already initialized"
+  if (window._leafletMap) {
+    return window._leafletMap;
+  }
     map = L.map("map", {
       zoomControl: true,
       minZoom: 13,
