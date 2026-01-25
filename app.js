@@ -1748,3 +1748,86 @@ function bindValiderIntervention_(getCurrentTree, saveCurrentTree) {
     await saveCurrentTree(tree);
   });
 }
+
+
+
+/* =========================
+   ✅ HISTORIQUE INTERVENTIONS (AJOUT)
+========================= */
+
+function formatInterventionLine_() {
+  const get = (id) => (document.getElementById(id)?.value || "").trim();
+
+  const dateDemande = get("dateDemande");
+  const natureTravaux = get("natureTravaux");
+  const dateDemandeDevis = get("dateDemandeDevis");
+  const devisNumero = get("devisNumero");
+  const montantDevis = get("montantDevis");
+  const dateExecution = get("dateExecution");
+  const remarquesTravaux = get("remarquesTravaux");
+  const numeroBDC = get("numeroBDC");
+  const numeroFacture = get("numeroFacture");
+
+  const all = [dateDemande,natureTravaux,dateDemandeDevis,devisNumero,montantDevis,dateExecution,remarquesTravaux,numeroBDC,numeroFacture]
+    .some(v => v !== "");
+  if (!all) return "";
+
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+
+  return `[${yyyy}-${mm}-${dd}] dateDemande=${dateDemande} | natureTravaux=${natureTravaux} | dateDemandeDevis=${dateDemandeDevis} | devisNumero=${devisNumero} | montantDevis=${montantDevis} | dateExecution=${dateExecution} | remarquesTravaux=${remarquesTravaux} | numeroBDC=${numeroBDC} | numeroFacture=${numeroFacture}`;
+}
+
+function clearTravauxFields_() {
+  ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value="";
+  });
+}
+
+function appendToHistoryUI_(line) {
+  const ta = document.getElementById("historyInterventions");
+  if (!ta) return;
+  const cur = (ta.value || "").trim();
+  ta.value = cur ? (cur + "\n" + line) : line;
+}
+
+function updateRightPreviewHistory_(text) {
+  const box = document.getElementById("rightHistoryInterventions");
+  if (box) box.textContent = text || "";
+}
+
+function getSelectedTreeObject_() {
+  if (typeof selectedTree !== "undefined" && selectedTree) return selectedTree;
+  if (typeof currentTree !== "undefined" && currentTree) return currentTree;
+  if (typeof selectedArbre !== "undefined" && selectedArbre) return selectedArbre;
+  return null;
+}
+
+function setSelectedTreeHistory_(txt) {
+  const t = getSelectedTreeObject_();
+  if (t) t.historyInterventions = txt;
+}
+
+function handleValiderIntervention_() {
+  const line = formatInterventionLine_();
+  if (!line) return;
+  appendToHistoryUI_(line);
+
+  const txt = (document.getElementById("historyInterventions")?.value || "").trim();
+  setSelectedTreeHistory_(txt);
+  updateRightPreviewHistory_(txt);
+
+  clearTravauxFields_();
+
+  if (typeof saveTree === "function") saveTree();
+  else if (typeof saveCurrentTree === "function") saveCurrentTree();
+  else if (typeof saveTreeToSheets === "function") saveTreeToSheets();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btnValiderIntervention");
+  if (btn) btn.addEventListener("click", handleValiderIntervention_);
+});
