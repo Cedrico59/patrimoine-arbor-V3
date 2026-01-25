@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Patrimoine arboré — Marcq-en-Barœul</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    :root { --bg:#0b1020; --panel:#111a33; --muted:#9db0ff; --text:#eef1ff; --line:#20305f; --accent:#6aa6ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); }
+    header { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+    header h1 { margin:0; font-size:16px; font-weight:700; letter-spacing:.2px; }
+    header .badge { font-size:12px; color:var(--muted); border:1px solid var(--line); padding:4px 8px; border-radius:999px; }
+    main { display:grid; grid-template-columns: 1.35fr .65fr; height: calc(100vh - 52px); }
+    #map { height:100%; width:100%; }
+    aside { border-left:1px solid var(--line); background: linear-gradient(180deg, rgba(17,26,51,.95), rgba(17,26,51,.75)); padding:14px; overflow:auto; }
+    .card { background: rgba(255,255,255,.03); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px; }
+    .card h2 { margin:0 0 10px; font-size:14px; }
+    label { display:block; font-size:12px; color:var(--muted); margin:10px 0 6px; }
+    input[type="text"], input[type="number"], textarea {
+      width:100%; padding:10px; border-radius:12px; border:1px solid var(--line);
+      background: rgba(0,0,0,.25); color: var(--text); outline:none;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .btns { display:flex; gap:8px; flex-wrap: wrap; margin-top:10px; }
+    button {
+      appearance:none; border:1px solid var(--line); background: rgba(106,166,255,.14);
+      color: var(--text); padding:10px 10px; border-radius:12px; cursor:pointer; font-weight:600;
+    }
+    button.secondary { background: rgba(255,255,255,.06); }
+    button.danger { background: rgba(255,90,90,.14); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .hint { font-size:12px; color: var(--muted); line-height:1.35; }
+    .list { display:flex; flex-direction:column; gap:8px; }
+    .treeItem {
+      display:flex; justify-content:space-between; gap:10px;
+      padding:10px; border-radius:12px; border:1px solid var(--line);
+      background: rgba(0,0,0,.18);
+    }
+    .treeItem b { font-size:13px; }
+    .treeItem small { color: var(--muted); display:block; margin-top:2px; }
+    .treeItem .actions { display:flex; gap:6px; align-items:flex-start; }
+    .pill { font-size:11px; color: var(--muted); border:1px solid var(--line); padding:3px 8px; border-radius:999px; }
+    .gallery { display:grid; grid-template-columns: repeat(2, 1fr); gap:8px; margin-top:10px; }
+    .photo {
+      border-radius:12px; border:1px solid var(--line); overflow:hidden; background: rgba(0,0,0,.2);
+      display:flex; flex-direction:column;
+    }
+    .photo img { width:100%; height:140px; object-fit:cover; display:block; }
+    .photo .meta { display:flex; justify-content:space-between; align-items:center; padding:8px; gap:8px; }
+    .photo .meta span { font-size:11px; color: var(--muted); }
+    .photo .meta button { padding:6px 8px; border-radius:10px; font-size:12px; }
+    .divider { height:1px; background: var(--line); margin:12px 0; opacity:.8; }
+    .topRow { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+    .search { display:flex; gap:8px; }
+    .search input { flex:1; }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; height:auto; }
+      #map { height: 55vh; }
+      aside { height: auto; border-left:none; border-top:1px solid var(--line); }
+    }
+
+    .app-header { display:flex; align-items:center; justify-content:space-between; }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .logo-ville { height:40px; width:auto; object-fit:contain; }
+    .preview-photo { width:100%; max-height:240px; object-fit:contain; background:#0b1020; }
+    .preview-info p { margin:4px 0; font-size:13px; }
+    .preview-info small { color:var(--muted); font-size:12px; }
+
+    .map-legend {
+  background: rgba(17, 26, 51, 0.95);
+  color: #eef1ff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #20305f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.map-legend b {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.legend-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.5);
+}
+#treeListWrapper {
+  margin-top: 10px;
+}
+.carousel {
+  position: relative;
+  width: 100%;
+  max-height: 320px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.carousel img {
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: white;
+  font-size: 22px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.carousel-btn.left { left: 8px; }
+.carousel-btn.right { right: 8px; }
+
+#carouselCount {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+.hidden {
+  display: none;
+}
+.tree-marker {
+  z-index: 1000 !important;
+  pointer-events: auto;
+
+  /* 🔥 correction */
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* sécurité supplémentaire */
+.tree-marker.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.tree-marker svg {
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.tree-marker:hover svg {
+  transform: scale(1.12);
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.35));
+}
+.etat-pulse .pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: pulseDanger 1.6s ease-out infinite;
+}
+.pulse-ring.danger{
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulseDanger 1.4s ease-out infinite;
+}
+
+
+@keyframes pulseDanger {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+#loginOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,10,25,0.92);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loginBox {
+  background: #111a33;
+  border: 1px solid #20305f;
+  border-radius: 16px;
+  padding: 24px;
+  width: 320px;
+  text-align: center;
+}
+
+.loginBox input {
+  width: 100%;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 12px;
+  border: 1px solid #20305f;
+  background: rgba(0,0,0,.3);
+  color: #eef1ff;
+}
+
+#loginError {
+  color: #ff6b6b;
+  font-size: 13px;
+  min-height: 18px;
+}
+
+
+/* =========================
+   MODE AGENT TERRAIN
+========================= */
+
+body.agent-mode main {
+  grid-template-columns: 1fr;
+}
+
+/* Carte prioritaire */
+body.agent-mode #map {
+  height: 100vh;
+}
+
+/* Panneau fiche = bottom sheet */
+body.agent-mode aside {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 42vh;
+  z-index: 1000;
+  border-radius: 18px 18px 0 0;
+  overflow-y: auto;
+}
+
+/* Masquer éléments non terrain */
+body.agent-mode #secteurCount,
+body.agent-mode .export,
+body.agent-mode #importBtn {
+  display: none;
+}
+
+/* Boutons plus gros */
+body.agent-mode button {
+  font-size: 16px;
+  padding: 14px;
+}
+.photo-status {
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: #9db0ff;
+}
+
+  </style>
+</head>
+
+<body>
+
+<header class="app-header">
+  <img src="images/logo-marcq.png" alt="Ville de Marcq-en-Barœul" class="logo-ville">
+  <div>
+    <h1>Patrimoine arboré — Ville de Marcq-en-Barœul</h1>
+    <span class="badge">Clique sur la carte pour ajouter un arbre</span>
+  </div>
+
+<div class="header-actions" style="display:flex; gap:10px; align-items:center;">
+  <button id="agentModeBtn" class="secondary" type="button">
+    📱 Mode agent
+  </button>
+
+  <button id="logoutBtn" class="secondary" type="button" style="display:none;">
+    🚪 Déconnexion
+  </button>
+</div>
+
+
+</header>
+
+<main>
+  <div id="map"></div>
+
+  <aside>
+    <!-- 🧾 FICHE SYNTHÈSE ARBRE -->
+    <div class="card" id="treePreview" style="display:none;">
+      <h2>Fiche de l’arbre</h2>
+
+      
+
+  <!-- 🖼️ CARROUSEL PHOTOS -->
+  <div id="photoCarousel" class="carousel hidden">
+    <button class="carousel-btn left">⬅️</button>
+    <img id="carouselImage" />
+    <button class="carousel-btn right">➡️</button>
+    <div id="carouselCount"></div>
+  </div>
+
+</div>
+
+
+      <div class="preview-info">
+        <p><b>ID :</b> <span id="p-id"></span></p>
+        <p><b>Espèce :</b> <span id="p-species"></span></p>
+        <p><b>Secteur :</b> <span id="p-secteur"></span></p>
+        <p><b>Hauteur :</b> <span id="p-height"></span> m</p>
+        <p><b>Diamètre :</b> <span id="p-dbh"></span> cm</p>
+        <p><b>Adresse :</b> <span id="p-address"></span></p>
+        <p><b>Commentaire :</b></p>
+        <small id="p-comment"></small>
+      </div>
+
+      <div class="btns" style="margin-top:12px;">
+        <button class="secondary" onclick="openTreeInNewTab()">Ouvrir la fiche</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Arbres par secteur</h2>
+      <div id="secteurCount" class="list"></div>
+    </div>
+
+    <!-- 🌳 LISTE DES ARBRES -->
+    <div class="card">
+      <div class="topRow">
+  <h2 style="margin:0;">Arbres</h2>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <span id="count" class="pill">0</span>
+    <button id="toggleListBtn" class="secondary">Réduire</button>
+  </div>
+</div>
+
+
+      <div class="search" style="margin-top:10px;">
+        <input id="q" type="text" placeholder="Rechercher (espèce, adresse, tag…)" />
+        <button class="secondary" id="exportBtn">Exporter</button>
+      </div>
+
+      <p class="hint" style="margin:10px 0 0;">
+        Les données sont stockées dans ton navigateur (localStorage) + synchronisées sur Google Sheets.
+      </p>
+
+      <div class="divider"></div>
+     <div id="treeListWrapper">
+  <div id="treeList" class="list"></div>
+</div>
+
+
+      <div class="btns">
+        <button class="secondary" id="importBtn">Importer</button>
+        <input id="importFile" type="file" accept="application/json" hidden />
+      </div>
+    </div>
+
+    <!-- ✍️ ÉDITEUR -->
+    <div class="card" id="editorCard">
+      <h2 id="editorTitle">Ajouter un arbre</h2>
+      <p class="hint" id="editorHint">Clique sur la carte pour choisir l’emplacement, puis complète la fiche.</p>
+
+      <label>ID de l’arbre</label>
+      <input id="treeId" type="text" readonly style="opacity:0.7; font-size:12px;" />
+
+      <label>Latitude / Longitude</label>
+      <div class="row">
+        <input id="lat" type="number" step="0.000001" placeholder="Latitude" />
+        <input id="lng" type="number" step="0.000001" placeholder="Longitude" />
+        <button id="gpsBtn" class="secondary">
+  📍 Utiliser ma position GPS
+</button>
+
+      </div>
+
+      <label>Espèce (si connue)</label>
+      <input id="species" type="text" placeholder="Ex: Platane, Tilleul, Chêne..." />
+
+      <div class="row">
+        <div>
+          <label>Hauteur estimée (m)</label>
+          <input id="height" type="number" step="0.1" placeholder="Ex: 12" />
+        </div>
+        <div>
+          <label>Diamètre tronc (cm)</label>
+          <input id="dbh" type="number" step="1" placeholder="Ex: 45" />
+        </div>
+      </div>
+
+      <label>Secteur</label>
+      <select id="secteur">
+        <option value="">— Sélectionner un secteur —</option>
+        <option value="Hautes Loges - Briqueterie">Hautes Loges - Briqueterie</option>
+        <option value="Bourg">Bourg</option>
+        <option value="Buisson - Delcencerie">Buisson - Delcencerie</option>
+        <option value="Mairie - Quesne">Mairie - Quesne</option>
+        <option value="Pont - Plouich - Clémenceau">Pont - Plouich - Clémenceau</option>
+        <option value="Cimetière Delcencerie">Cimetière Delcencerie</option>
+        <option value="Cimetière Pont">Cimetière Pont</option>
+        <option value="Hippodrome">Hippodrome</option>
+        <option value="Ferme aux Oies">Ferme aux Oies</option>
+      </select>
+
+      <label>Adresse / repère</label>
+      <input id="address" type="text" placeholder="Ex: Avenue..., près de..." />
+
+      <label>Tags (séparés par des virgules)</label>
+      <input id="tags" type="text" placeholder="Ex: remarquable, alignement, parc, malade..." />
+
+      <label>État de l’arbre</label>
+<select id="etat">
+  <option value="">— Aucun —</option>
+  <option value="Dangereux (A abattre)">🔴 Dangereux (A abattre)</option>
+  <option value="A surveiller">🟠 À surveiller</option>
+  <option value="A élaguer (URGENT)">🟡 À élaguer (URGENT)</option>
+  <option value="A élaguer (Moyen)">🔵 À élaguer (Moyen)</option>
+  <option value="A élaguer (Faible)">🟢 À élaguer (Faible)</option>
+</select>
+
+<div class="divider"></div>
+<h2>Élagages / Abattages</h2>
+
+<label>Date de demande</label>
+<input type="date" id="dateDemande">
+
+<label>Nature des travaux</label>
+<input type="text" id="natureTravaux" placeholder="Élagage, Abattage, Taille sanitaire...">
+
+<label>Date de demande de devis</label>
+<input type="date" id="dateDemandeDevis">
+
+<label>Devis n°</label>
+<input type="text" id="devisNumero">
+
+<label>Montant du devis (€)</label>
+<input type="number" step="0.01" id="montantDevis">
+
+<label>Date d’exécution des travaux</label>
+<input type="date" id="dateExecution">
+
+<label>Remarques</label>
+<textarea id="remarquesTravaux"></textarea>
+
+<label>N° BDC</label>
+<input type="text" id="numeroBDC">
+
+<label>N° Facture</label>
+<input type="text" id="numeroFacture">
+
+
+
+      <label>Commentaire</label>
+      <textarea id="comment" placeholder="Note d’observation, état sanitaire, histoire, etc."></textarea>
+
+    <div class="form-group" id="historyInterventionsGroup">
+      <label for="historyInterventions">Historique des interventions</label>
+      <textarea id="historyInterventions" placeholder="Historique des interventions (généré via le bouton Valider)" rows="5"></textarea>
+    </div>
+
+    <button id="btnValiderIntervention" type="button" class="secondary-btn">
+      ✅ Valider intervention
+    </button>
+
+
+      <label>Photos (jpg/png)</label>
+  <div class="photo-actions">
+  <button type="button" id="takePhotoBtn" class="secondary">
+    📸 Prendre une photo
+  </button>
+
+  <button type="button" id="pickGalleryBtn" class="secondary">
+    🖼️ Choisir depuis la galerie
+  </button>
+
+  <div id="photoStatus" class="photo-status"></div>
+
+  <!-- Inputs cachés -->
+  <input
+    type="file"
+    id="cameraInput"
+    accept="image/*"
+    capture="environment"
+    hidden
+  >
+
+  <input
+    type="file"
+    id="galleryInput"
+    accept="image/*"
+    multiple
+    hidden
+  >
+</div>
+
+
+>
+
+
+      <div class="btns">
+        <button id="saveBtn">Enregistrer</button>
+        <button class="secondary" id="newBtn">Nouveau</button>
+        <button class="danger" id="deleteBtn" disabled>Supprimer</button>
+        <button class="secondary" id="undoBtn" style="display:none;">Annuler la suppression</button>
+
+      </div>
+
+      <div id="gallery" class="gallery"></div>
+    </div>
+  </aside>
+</main>
+
+<!-- ✅ Librairies JS (defer) -->
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+  defer
+></script>
+
+<script src="https://unpkg.com/leaflet-pip@1.1.0/leaflet-pip.min.js" defer></script>
+
+<!-- ✅ TON JS -->
+
+<script src="app.js?v=12" defer></script>
+
+
+<div id="loginOverlay">
+  <div class="loginBox">
+    <h2>Accès sécurisé</h2>
+    <select id="loginSelect">
+      <option value="admin">Admin</option>
+      <option value="Hautes Loges - Briqueterie">Hautes Loges - Briqueterie</option>
+      <option value="Bourg">Bourg</option>
+      <option value="Buisson - Delcencerie">Buisson - Delcencerie</option>
+      <option value="Mairie - Quesne">Mairie - Quesne</option>
+      <option value="Pont - Plouich - Clémenceau">Pont - Plouich - Clémenceau</option>
+      <option value="Cimetière Delcencerie">Cimetière Delcencerie</option>
+      <option value="Cimetière Pont">Cimetière Pont</option>
+      <option value="Hippodrome">Hippodrome</option>
+      <option value="Ferme aux Oies">Ferme aux Oies</option>
+    </select>
+    <input type="password" id="passwordInput" placeholder="Mot de passe" />
+    <button id="loginBtn">Se connecter</button>
+    <p id="loginError"></p>
+  </div>
+</div>
+
+
+</body>
+</html>
