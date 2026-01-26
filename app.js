@@ -1466,7 +1466,18 @@ async function loadTreesFromSheets() {
 
     if (!res.ok) throw new Error("Sheets indisponible: " + res.status);
 
-    const data = await res.json();
+    const txt = await res.text();
+    const data = JSON.parse(txt);
+    // 🔐 Si Apps Script renvoie "unauthorized"
+    if (data && data.ok === false && data.error === "unauthorized") {
+      console.warn("🔒 Token expiré → retour login");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userSecteur");
+      document.getElementById("loginOverlay").style.display = "flex";
+      return;
+    }
+
     if (!Array.isArray(data)) throw new Error("Format Sheets invalide");
 
     trees = data;
@@ -1510,11 +1521,16 @@ applyAgentMode();
 // START
 // =========================
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!isAuthenticated) {
+  // 🔄 Relire le token au démarrage (persistant)
+  authToken = localStorage.getItem("authToken");
+
+  if (!authToken) {
+    console.warn("🔒 Pas de token → affichage login");
     document.getElementById("loginOverlay").style.display = "flex";
     return;
   }
 
+  // ✅ Token présent → on lance l'app + charge Sheets
   await startApp();
 });
 
@@ -1642,8 +1658,8 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
       })
     });
 
-    const data = await res.json();
-
+    const txt = await res.text();
+    const data = JSON.parse(txt);
     if (!data.ok) {
       err.textContent = "Mot de passe incorrect";
       return;
