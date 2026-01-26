@@ -7,7 +7,7 @@ var it = null;
   // =========================
   // CONFIG
   // =========================
-  const API_URL = "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://script.google.com/macros/s/AKfycbxrTMFxQDSOHvBrgwXWHwoGhefpHEtcHLdaaq3YdtJLU5QqvBsjs08hrByRVwAYXg94Iw/exec");
+  const API_URL = "https://cors.isomorphic-git.org/https://script.google.com/macros/s/AKfycbxrTMFxQDSOHvBrgwXWHwoGhefpHEtcHLdaaq3YdtJLU5QqvBsjs08hrByRVwAYXg94Iw/exec";
   const STORAGE_KEY = "marcq_arbres_v1";
   const MARCQ_CENTER = [50.676, 3.086];
 
