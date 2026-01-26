@@ -69,7 +69,7 @@ let isAuthenticated = !!authToken;
 // 🔒 DROITS: verrouillage Travaux (sauf admin)
 // =========================
 function isAdmin() {
-  return (sessionStorage.getItem("userRole") || "").toLowerCase() === "admin";
+  return (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
 
 function isPastilleTree(t){
@@ -1467,17 +1467,6 @@ async function loadTreesFromSheets() {
     if (!res.ok) throw new Error("Sheets indisponible: " + res.status);
 
     const data = await res.json();
-
-    // 🔐 Si Apps Script renvoie "unauthorized"
-    if (data && data.ok === false && data.error === "unauthorized") {
-      console.warn("🔒 Token expiré → retour login");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("userRole");
-      localStorage.removeItem("userSecteur");
-      document.getElementById("loginOverlay").style.display = "flex";
-      return;
-    }
-
     if (!Array.isArray(data)) throw new Error("Format Sheets invalide");
 
     trees = data;
@@ -1521,16 +1510,11 @@ applyAgentMode();
 // START
 // =========================
 document.addEventListener("DOMContentLoaded", async () => {
-  // 🔄 Relire le token au démarrage (persistant)
-  authToken = localStorage.getItem("authToken");
-
-  if (!authToken) {
-    console.warn("🔒 Pas de token → affichage login");
+  if (!isAuthenticated) {
     document.getElementById("loginOverlay").style.display = "flex";
     return;
   }
 
-  // ✅ Token présent → on lance l'app + charge Sheets
   await startApp();
 });
 
@@ -1669,8 +1653,8 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
     localStorage.setItem("authToken", authToken);
 
     // ✅ bonus : stocker infos user
-    sessionStorage.setItem("userRole", data.role || "");
-    sessionStorage.setItem("userSecteur", data.secteur || "");
+    localStorage.setItem("userRole", data.role || "");
+    localStorage.setItem("userSecteur", data.secteur || "");
 
     isAuthenticated = true;
 
