@@ -165,21 +165,72 @@ function authFail_() {
    GET – LECTURE DES ARBRES
    (MODIF: ajout auth + param e)
 ========================= */
-
-/* =========================
-   GET – LECTURE (ARBRES + TRAVAUX + HISTORIQUE)
-   ✅ 1 SEUL doGet (sinon Leaflet/app bug)
-========================= */
 function doGet(e) {
   // 🔐 AUTH
   const token = e?.parameter?.token;
   if (!isValidToken_(token)) return authFail_();
-  const meta = getTokenMeta_(token) || {};
+
+  const sheet = SpreadsheetApp
+    .openById(SPREADSHEET_ID)
+    .getSheetByName("Patrimoine_arboré");
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    return ContentService
+      .createTextOutput("[]")
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const values = sheet
+    .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
+    .getValues();
+
+  const trees = values
+    .map(row => {
+      const lat = Number(row[2]);
+      const lng = Number(row[3]);
+
+      return {
+        createdAt: row[0]?.getTime?.() || null,
+        id: row[1],
+        lat,
+        lng,
+        species: row[4],
+        height: row[5] !== "" ? Number(row[5]) : null,
+        dbh: row[6] !== "" ? Number(row[6]) : null,
+        secteur: row[7],
+        address: row[8],
+        tags: row[9] ? String(row[9]).split(",") : [],
+        historiqueInterventions: row[10] || "",
+        comment: row[11],
+        etat: row[13] || "",
+
+        photos: (() => {
+          if (!row[12]) return [];
+          try { return JSON.parse(row[12]); }
+          catch (e) { return []; }
+        })(),
+
+        updatedAt: row[14] ? Number(row[14]) : null
+      };
+    })
+    .filter(t => t.id && Number.isFinite(t.lat) && Number.isFinite(t.lng));
+
+  return ContentService
+    .createTextOutput(JSON.stringify(trees))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ===== LECTURE DES TRAVAUX =====
+function doGet(e) {
+  const token = e?.parameter?.token;
+  if (!isValidToken_(token)) return authFail_();
 
   // 📜 HISTORIQUE : GET?action=history&id=XXX
   if (e?.parameter?.action === "history") {
     const treeId = String(e?.parameter?.id || "").trim();
     const limit = Number(e?.parameter?.limit || 50);
+
     if (!treeId) return jsonResponse({ ok: false, error: "id manquant" });
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -206,6 +257,7 @@ function doGet(e) {
         if (out.length >= limit) break;
       }
     }
+
     return jsonResponse({ ok: true, history: out });
   }
 
@@ -213,27 +265,23 @@ function doGet(e) {
   const sheet = ss.getSheetByName("Patrimoine_arboré");
   const sheetTravaux = ss.getSheetByName(SHEET_TRAVAUX);
 
-  /* ===== LECTURE TRAVAUX =====
-     Colonnes attendues dans tableau_Elagages/Abattages :
-     A id | B etat | C secteur | D dateDemande | E natureTravaux | F address | G species
-     H dateDemandeDevis | I devisNumero | J montantDevis | K dateExecution | L remarquesTravaux
-     M numeroBDC | N numeroFacture
-  */
+  /* ===== LECTURE TRAVAUX ===== */
   const travauxMap = {};
   if (sheetTravaux) {
     const lastT = sheetTravaux.getLastRow();
     if (lastT > 1) {
-      const valuesT = sheetTravaux.getRange(2, 1, lastT - 1, sheetTravaux.getLastColumn()).getValues();
+      const valuesT = sheetTravaux
+        .getRange(2, 1, lastT - 1, sheetTravaux.getLastColumn())
+        .getValues();
+
       valuesT.forEach(r => {
         const treeId = String(r[0]).trim();
         if (!treeId) return;
+
         travauxMap[treeId] = {
-          etat: r[1] || "",
           secteur: r[2] || "",
           dateDemande: formatDateForInput(r[3]),
           natureTravaux: r[4] || "",
-          address: r[5] || "",
-          species: r[6] || "",
           dateDemandeDevis: formatDateForInput(r[7]),
           devisNumero: r[8] || "",
           montantDevis: r[9] || "",
@@ -246,20 +294,21 @@ function doGet(e) {
     }
   }
 
-  /* ===== LECTURE ARBRES =====
-     Colonnes attendues dans Patrimoine_arboré :
-     A createdAt | B id | C lat | D lng | E species | F height | G dbh | H secteur | I address
-     J tags | K historiqueInterventions | L comment | M photos | N etat | O updatedAt
-  */
+  /* ===== LECTURE ARBRES ===== */
   const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return jsonArrayResponse_([]);
+  if (lastRow < 2) {
+    return ContentService.createTextOutput("[]")
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
-  const values = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  const values = sheet
+    .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
+    .getValues();
 
-  let trees = values.map(row => {
+  const trees = values.map(row => {
     const lat = Number(row[2]);
     const lng = Number(row[3]);
-    const id = String(row[1] || "").trim();
+    const id = row[1];
     const travaux = travauxMap[id] || {};
 
     return {
@@ -272,17 +321,18 @@ function doGet(e) {
       dbh: row[6] !== "" ? Number(row[6]) : null,
       secteur: row[7],
       address: row[8],
-      tags: row[9] ? String(row[9]).split(",").map(s=>s.trim()).filter(Boolean) : [],
+      tags: row[9] ? String(row[9]).split(",") : [],
       historiqueInterventions: row[10] || "",
-      comment: row[11] || "",
+      comment: row[11],
       photos: (() => {
         if (!row[12]) return [];
-        try { return JSON.parse(row[12]); } catch (e) { return []; }
+        try { return JSON.parse(row[12]); }
+        catch { return []; }
       })(),
       etat: row[13] || "",
       updatedAt: row[14] ? Number(row[14]) : null,
 
-      // ✅ TRAVAUX
+      // ✅ TRAVAUX RENVOYÉS À L’APP
       dateDemande: travaux.dateDemande || "",
       natureTravaux: travaux.natureTravaux || "",
       dateDemandeDevis: travaux.dateDemandeDevis || "",
@@ -295,13 +345,9 @@ function doGet(e) {
     };
   }).filter(t => t.id && Number.isFinite(t.lat) && Number.isFinite(t.lng));
 
-  // 🔒 Filtrage serveur : un compte secteur ne voit que SON secteur
-  if (meta.role === "secteur" && meta.secteur) {
-    const s = String(meta.secteur).trim();
-    trees = trees.filter(t => String(t.secteur || "").trim() === s);
-  }
-
-  return jsonArrayResponse_(trees);
+  return ContentService
+    .createTextOutput(JSON.stringify(trees))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 
@@ -440,10 +486,7 @@ function doPost(e) {
           );
 
           sheet.getRange(i + 2, 13).setValue(JSON.stringify(newPhotos));
-          // ✅ Tri automatique : Secteur -> Adresse -> Espèce
-    sortPatrimoineSheet_(sheet);
-
-    SpreadsheetApp.flush();
+          SpreadsheetApp.flush();
 
           return ok({ status: "PHOTO_DELETED", remaining: newPhotos.length });
         }
@@ -490,8 +533,6 @@ function doPost(e) {
       try { data.photos = JSON.parse(data.photos); }
       catch { data.photos = []; }
     }
-
-    if (data.historyInterventions && !data.historiqueInterventions) data.historiqueInterventions = data.historyInterventions;
 
     // ✅ HISTORIQUE (AJOUT) : état avant update/create
     const beforeObj = getTreeRowAsObject_(sheet, data.id);
@@ -718,26 +759,6 @@ function assertSheetAlive() {
   }
 }
 
-
-function sortPatrimoineSheet_(sheet) {
-  try {
-    if (!sheet) return;
-    const lastRow = sheet.getLastRow();
-    const lastCol = sheet.getLastColumn();
-    if (lastRow <= 2) return; // rien à trier
-
-    // Colonnes Patrimoine_arboré:
-    // H (8) = secteur, I (9) = address, E (5) = species
-    sheet.getRange(2, 1, lastRow - 1, lastCol).sort([
-      { column: 8, ascending: true },
-      { column: 9, ascending: true },
-      { column: 5, ascending: true }
-    ]);
-  } catch (e) {
-    Logger.log("Tri Patrimoine erreur: " + e);
-  }
-}
-
 function colorRowByEtat(sheet, rowIndex, etat) {
   let color = null;
 
@@ -775,16 +796,6 @@ function colorEtatTravaux(sheet, rowIndex, etat) {
     cell.setBackground(null);
     cell.setFontWeight("normal");
   }
-}
-
-
-function jsonArrayResponse_(arr) {
-  return ContentService
-    .createTextOutput(JSON.stringify(arr || []))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
 function jsonResponse(obj) {
