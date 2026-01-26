@@ -33,7 +33,7 @@ var it = null;
   let selectedId = null;
   let lastDeletedTree = null;
   let pendingPhotos = [];
-let authToken = sessionStorage.getItem("authToken");
+let authToken = localStorage.getItem("authToken");
 
 // ------------------------------
 // 🔐 Déconnexion
@@ -45,9 +45,9 @@ function updateLogoutButtonVisibility() {
 }
 
 function logout() {
-  sessionStorage.removeItem("authToken");
-  sessionStorage.removeItem("userRole");
-  sessionStorage.removeItem("userSecteur");
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("userSecteur");
 
   authToken = null;
   isAuthenticated = false;
@@ -1467,6 +1467,17 @@ async function loadTreesFromSheets() {
     if (!res.ok) throw new Error("Sheets indisponible: " + res.status);
 
     const data = await res.json();
+
+    // 🔐 Si Apps Script renvoie "unauthorized"
+    if (data && data.ok === false && data.error === "unauthorized") {
+      console.warn("🔒 Token expiré → retour login");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userSecteur");
+      document.getElementById("loginOverlay").style.display = "flex";
+      return;
+    }
+
     if (!Array.isArray(data)) throw new Error("Format Sheets invalide");
 
     trees = data;
@@ -1510,11 +1521,16 @@ applyAgentMode();
 // START
 // =========================
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!isAuthenticated) {
+  // 🔄 Relire le token au démarrage (persistant)
+  authToken = localStorage.getItem("authToken");
+
+  if (!authToken) {
+    console.warn("🔒 Pas de token → affichage login");
     document.getElementById("loginOverlay").style.display = "flex";
     return;
   }
 
+  // ✅ Token présent → on lance l'app + charge Sheets
   await startApp();
 });
 
@@ -1650,7 +1666,7 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
     }
 
     authToken = data.token;
-    sessionStorage.setItem("authToken", authToken);
+    localStorage.setItem("authToken", authToken);
 
     // ✅ bonus : stocker infos user
     sessionStorage.setItem("userRole", data.role || "");
