@@ -49,6 +49,7 @@ var it = null;
 
   let trees = [];
   let selectedId = null;
+  let legendControl = null; // ✅ éviter double légende
   let lastDeletedTree = null;
   let pendingPhotos = [];
 let authToken = localStorage.getItem("authToken");
@@ -395,6 +396,12 @@ const SECTEURS = [
   "Ferme aux Oies"
 ];
 function addLegendToMap() {
+  // ✅ éviter double légende si startApp() est relancé
+  if (legendControl) {
+    try { map.removeControl(legendControl); } catch (e) {}
+    legendControl = null;
+  }
+
   const legend = L.control({ position: "bottomright" });
 
   legend.onAdd = function () {
@@ -430,8 +437,9 @@ function addLegendToMap() {
   };
 
   legend.addTo(map);
+  legendControl = legend;
 
-  setTimeout(() => {
+setTimeout(() => {
     const btn = document.getElementById("legendToggleBtn");
     const content = document.getElementById("legendContent");
     if (!btn || !content) return;
@@ -867,7 +875,8 @@ async function readFilesAsDataUrls(files) {
   addressEl().value = "";
   tagsEl().value = "";
   commentEl().value = "";
-document.getElementById("photoCarousel")?.classList.add("hidden");
+  historyInterventionsEl().value = "";
+  document.getElementById("photoCarousel")?.classList.add("hidden");
 
   const cam = document.getElementById("cameraInput");
   const gal = document.getElementById("galleryInput");
@@ -929,7 +938,7 @@ pendingPhotos = [];
     numeroFactureEl().value = t.numeroFacture || "";
 
     commentEl().value = t.comment || "";
-
+    historyInterventionsEl().value = t.historiqueInterventions || "";
 
   // ⚠️ Affichage des photos UNIQUEMENT si arbre déjà enregistré
 if (t.photos && t.photos.length > 0) {
@@ -1450,6 +1459,7 @@ if (selectedId) {
         tags: normalizeTags(tagsEl().value),
         etat: etatEl().value || "",
         comment: commentEl().value.trim(),
+        historiqueInterventions: historyInterventionsEl().value.trim(),
         photos,
         createdAt: Date.now(),
         updatedAt: Date.now(),
