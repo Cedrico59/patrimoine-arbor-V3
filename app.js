@@ -15,6 +15,7 @@ function wireValidateIntervention() {
     alert("Intervention validée. Pense à enregistrer.");
   };
 }
+
 /* FIX: prevent ReferenceError for stray `it` */
 var it = null;
 
@@ -155,7 +156,7 @@ function applyTravauxLock() {
   const tagsEl = () => el("tags");
   const etatEl = () => el("etat");
   const commentEl = () => el("comment");
-  const historyInterventionsEl = () => el("historyInterventions");
+const historyInterventionsEl = () => el("historyInterventions");
   const photosEl = () => el("photos");
   const galleryEl = () => el("gallery");
 
@@ -928,7 +929,6 @@ pendingPhotos = [];
     numeroFactureEl().value = t.numeroFacture || "";
 
     commentEl().value = t.comment || "";
-    historyInterventionsEl().value = t.historiqueInterventions || "";
 
 
   // ⚠️ Affichage des photos UNIQUEMENT si arbre déjà enregistré
@@ -1414,6 +1414,7 @@ if (selectedId) {
   t.numeroFacture = numeroFactureEl().value.trim();
 
   t.comment = commentEl().value.trim();
+  t.historiqueInterventions = historyInterventionsEl().value.trim();
 
   // 🔥 photos : fusion définitive
   t.photos = [...(t.photos || []), ...pendingPhotos];
@@ -1796,30 +1797,3 @@ document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("btnValiderIntervention");
   if (btn) btn.addEventListener("click", handleValiderIntervention_);
 });
-
-
-/* =========================
-   🔒 SAFE HISTORY (ANTI PERTE + DEDUPE)
-========================= */
-function persistHistorySafely_(txt) {
-  if (!selectedId) return;
-  const t = getTreeById(selectedId);
-  if (t) t.historiqueInterventions = txt;
-  try {
-    localStorage.setItem("history_backup_" + selectedId, txt);
-  } catch {}
-}
-
-function dedupeHistory_(txt) {
-  if (!txt) return "";
-  const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
-  const seen = new Set();
-  const out = [];
-  for (const l of lines) {
-    const k = l.replace(/\s+/g, " ").toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(l);
-  }
-  return out.join("\n");
-}
