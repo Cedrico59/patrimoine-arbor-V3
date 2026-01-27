@@ -1,3 +1,21 @@
+
+/* ===== VALIDER INTERVENTION ===== */
+function wireValidateIntervention() {
+  const btn = document.getElementById("btnValiderIntervention");
+  if (!btn) return;
+
+  btn.onclick = () => {
+    const txt = historyInterventionsEl().value.trim();
+    if (!txt) {
+      alert("Aucune intervention à valider.");
+      return;
+    }
+    const now = new Date().toLocaleString("fr-FR");
+    historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
+    alert("Intervention validée. Pense à enregistrer.");
+  };
+}
+
 /* FIX: prevent ReferenceError for stray `it` */
 var it = null;
 
@@ -138,6 +156,7 @@ function applyTravauxLock() {
   const tagsEl = () => el("tags");
   const etatEl = () => el("etat");
   const commentEl = () => el("comment");
+const historyInterventionsEl = () => el("historyInterventions");
   const photosEl = () => el("photos");
   const galleryEl = () => el("gallery");
 
@@ -1395,6 +1414,7 @@ if (selectedId) {
   t.numeroFacture = numeroFactureEl().value.trim();
 
   t.comment = commentEl().value.trim();
+  t.historiqueInterventions = historyInterventionsEl().value.trim();
 
   // 🔥 photos : fusion définitive
   t.photos = [...(t.photos || []), ...pendingPhotos];
@@ -1547,6 +1567,7 @@ async function startApp() {
   initMap();
   addLegendToMap();
   wireUI();
+  wireValidateIntervention();
   applyTravauxLock();
 
   await loadQuartiersGeoJSON();
