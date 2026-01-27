@@ -160,107 +160,60 @@ function authFail_() {
   return jsonResponse({ ok: false, error: "unauthorized" });
 }
 
-
 /* =========================
-   GET – LECTURE DES ARBRES
-   (MODIF: ajout auth + param e)
+   GET – ROUTER (CORRIGÉ: un seul doGet)
 ========================= */
 function doGet(e) {
   // 🔐 AUTH
   const token = e?.parameter?.token;
   if (!isValidToken_(token)) return authFail_();
 
-  const sheet = SpreadsheetApp
-    .openById(SPREADSHEET_ID)
-    .getSheetByName("Patrimoine_arboré");
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) {
-    return ContentService
-      .createTextOutput("[]")
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  const values = sheet
-    .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
-    .getValues();
-
-  const trees = values
-    .map(row => {
-      const lat = Number(row[2]);
-      const lng = Number(row[3]);
-
-      return {
-        createdAt: row[0]?.getTime?.() || null,
-        id: row[1],
-        lat,
-        lng,
-        species: row[4],
-        height: row[5] !== "" ? Number(row[5]) : null,
-        dbh: row[6] !== "" ? Number(row[6]) : null,
-        secteur: row[7],
-        address: row[8],
-        tags: row[9] ? String(row[9]).split(",") : [],
-        historiqueInterventions: row[10] || "",
-        comment: row[11],
-        etat: row[13] || "",
-
-        photos: (() => {
-          if (!row[12]) return [];
-          try { return JSON.parse(row[12]); }
-          catch (e) { return []; }
-        })(),
-
-        updatedAt: row[14] ? Number(row[14]) : null
-      };
-    })
-    .filter(t => t.id && Number.isFinite(t.lat) && Number.isFinite(t.lng));
-
-  return ContentService
-    .createTextOutput(JSON.stringify(trees))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-// ===== LECTURE DES TRAVAUX =====
-function doGet(e) {
-  const token = e?.parameter?.token;
-  if (!isValidToken_(token)) return authFail_();
-
   // 📜 HISTORIQUE : GET?action=history&id=XXX
   if (e?.parameter?.action === "history") {
-    const treeId = String(e?.parameter?.id || "").trim();
-    const limit = Number(e?.parameter?.limit || 50);
-
-    if (!treeId) return jsonResponse({ ok: false, error: "id manquant" });
-
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const hist = ss.getSheetByName(SHEET_HISTORIQUE);
-    if (!hist) return jsonResponse({ ok: true, history: [] });
-
-    const last = hist.getLastRow();
-    if (last < 2) return jsonResponse({ ok: true, history: [] });
-
-    const rows = hist.getRange(2, 1, last - 1, hist.getLastColumn()).getValues();
-
-    const out = [];
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (String(rows[i][5]).trim() === treeId) {
-        out.push({
-          timestamp: rows[i][0],
-          login: rows[i][1],
-          role: rows[i][2],
-          secteurUser: rows[i][3],
-          action: rows[i][4],
-          treeId: rows[i][5],
-          details: rows[i][6]
-        });
-        if (out.length >= limit) break;
-      }
-    }
-
-    return jsonResponse({ ok: true, history: out });
+    return handleHistoryGet_(e);
   }
 
+  // 🌳 ARBRES + 🔧 TRAVAUX
+  return handleTreesAndTravauxGet_();
+}
+
+// 📜 HISTORIQUE – GET
+function handleHistoryGet_(e) {
+  const treeId = String(e?.parameter?.id || "").trim();
+  const limit = Number(e?.parameter?.limit || 50);
+
+  if (!treeId) return jsonResponse({ ok: false, error: "id manquant" });
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const hist = ss.getSheetByName(SHEET_HISTORIQUE);
+  if (!hist) return jsonResponse({ ok: true, history: [] });
+
+  const last = hist.getLastRow();
+  if (last < 2) return jsonResponse({ ok: true, history: [] });
+
+  const rows = hist.getRange(2, 1, last - 1, hist.getLastColumn()).getValues();
+
+  const out = [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (String(rows[i][5]).trim() === treeId) {
+      out.push({
+        timestamp: rows[i][0],
+        login: rows[i][1],
+        role: rows[i][2],
+        secteurUser: rows[i][3],
+        action: rows[i][4],
+        treeId: rows[i][5],
+        details: rows[i][6]
+      });
+      if (out.length >= limit) break;
+    }
+  }
+
+  return jsonResponse({ ok: true, history: out });
+}
+
+// 🌳 ARBRES + 🔧 TRAVAUX – GET
+function handleTreesAndTravauxGet_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName("Patrimoine_arboré");
   const sheetTravaux = ss.getSheetByName(SHEET_TRAVAUX);
@@ -279,9 +232,12 @@ function doGet(e) {
         if (!treeId) return;
 
         travauxMap[treeId] = {
+          etat: r[1] || "",
           secteur: r[2] || "",
           dateDemande: formatDateForInput(r[3]),
           natureTravaux: r[4] || "",
+          address: r[5] || "",
+          species: r[6] || "",
           dateDemandeDevis: formatDateForInput(r[7]),
           devisNumero: r[8] || "",
           montantDevis: r[9] || "",
@@ -329,7 +285,8 @@ function doGet(e) {
         try { return JSON.parse(row[12]); }
         catch { return []; }
       })(),
-      etat: row[13] || "",
+      etat: (travaux.etat || row[13] || ""),
+      secteurTravaux: (travaux.secteur || ""),
       updatedAt: row[14] ? Number(row[14]) : null,
 
       // ✅ TRAVAUX RENVOYÉS À L’APP
@@ -349,7 +306,6 @@ function doGet(e) {
     .createTextOutput(JSON.stringify(trees))
     .setMimeType(ContentService.MimeType.JSON);
 }
-
 
 /* =========================
    DRIVE
@@ -388,7 +344,6 @@ function uploadPhoto(base64, filename, treeId) {
 
 /* =========================
    POST – LOGIN / CREATE / UPDATE / DELETE
-   (MODIF: ajout login + auth)
 ========================= */
 function doPost(e) {
   try {
@@ -413,7 +368,7 @@ function doPost(e) {
     const token = e?.parameter?.token;
     if (!isValidToken_(token)) return authFail_();
 
-    // ✅ META (AJOUT) pour historique
+    // ✅ META pour historique
     const meta = getTokenMeta_(token); // {role, secteur, login}
 
     let data = {};
@@ -444,7 +399,35 @@ function doPost(e) {
       delete data.password;
     }
 
-    // 🔒 SÉCURITÉ SECTEUR (AJOUT) :
+    
+    /* ===== VALIDATION INTERVENTION ===== */
+    if (data.action === "validateIntervention" && data.id && data.intervention) {
+      const sheetVI = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
+      const lastVI = sheetVI.getLastRow();
+      if (lastVI > 1) {
+        const rowsVI = sheetVI.getRange(2, 1, lastVI - 1, sheetVI.getLastColumn()).getValues();
+        for (let i = 0; i < rowsVI.length; i++) {
+          if (String(rowsVI[i][1]).trim() === String(data.id).trim()) {
+            const rowIndex = i + 2;
+            const existing = String(rowsVI[i][10] || "").trim(); // col 11 Historique
+            const sep = existing ? "\n" : "";
+            const value = existing + sep + data.intervention;
+            sheetVI.getRange(rowIndex, 11).setValue(value);
+            sheetVI.getRange(rowIndex, 15).setValue(Date.now());
+            SpreadsheetApp.flush();
+
+            logHistory_(meta, "VALIDATE_INTERVENTION", data.id, {
+              added: data.intervention
+            });
+
+            return ok({ status: "INTERVENTION_ADDED" });
+          }
+        }
+      }
+      return ok({ status: "NOT_FOUND" });
+    }
+
+// 🔒 SÉCURITÉ SECTEUR :
     // un compte secteur ne peut enregistrer que dans son secteur
     if (meta && meta.role === "secteur") {
       data.secteur = meta.secteur || data.secteur || "";
@@ -459,7 +442,7 @@ function doPost(e) {
     /* ===== SUPPRESSION PHOTO ===== */
     if (data.action === "deletePhoto" && data.photoDriveId && data.treeId) {
 
-      // ✅ HISTORIQUE (AJOUT)
+      // ✅ HISTORIQUE
       logHistory_(meta, "DELETE_PHOTO", data.treeId, {
         photoDriveId: data.photoDriveId
       });
@@ -499,7 +482,7 @@ function doPost(e) {
     if (data.action === "delete" && data.id) {
       if (lastRow < 2) return ok({ status: "NOT_FOUND" });
 
-      // ✅ HISTORIQUE (AJOUT)
+      // ✅ HISTORIQUE
       const beforeObjDelete = getTreeRowAsObject_(sheet, data.id);
       logHistory_(meta, "DELETE", data.id, {
         deletedRow: beforeObjDelete || null
@@ -534,7 +517,7 @@ function doPost(e) {
       catch { data.photos = []; }
     }
 
-    // ✅ HISTORIQUE (AJOUT) : état avant update/create
+    // ✅ HISTORIQUE : état avant update/create
     const beforeObj = getTreeRowAsObject_(sheet, data.id);
 
     /* ===== PHOTOS EXISTANTES ===== */
@@ -563,9 +546,7 @@ function doPost(e) {
 
     const allPhotos = existingPhotos.concat(uploadedPhotos);
 
-    /* ===== DONNÉES =====
-       ✅ Ajout updatedAt (col 14) pour correspondre à ton doGet row[13]
-    */
+    /* ===== DONNÉES ===== */
     const rowData = [
       new Date(),
       data.id || "",
@@ -605,9 +586,7 @@ function doPost(e) {
       }
     }
 
-    /* ===== TRAVAUX (Élagages / Abattages) =====
-       ✅ NE PAS AJOUTER si pas de pastille Etat
-    */
+    /* ===== TRAVAUX (Élagages / Abattages) ===== */
     const etatArbre = String(data.etat || "").trim();
     const ETATS_TRAVAUX = [
       "Dangereux (A abattre)",
@@ -624,20 +603,20 @@ function doPost(e) {
         .getSheetByName(SHEET_TRAVAUX);
 
       const travauxRow = [
-        data.id,
-        etatArbre,
-        data.secteur || "",
-        data.dateDemande || "",
-        data.natureTravaux || "",
-        data.address || "",
-        data.species || "",
-        data.dateDemandeDevis || "",
-        data.devisNumero || "",
-        data.montantDevis || "",
-        data.dateExecution || "",
-        data.remarquesTravaux || "",
-        data.numeroBDC || "",
-        data.numeroFacture || ""
+        data.id || "",                    // A - Id
+        etatArbre || "",                  // B - État de l’arbre
+        data.secteur || "",               // C - Secteur
+        data.dateDemande || "",           // D - Date de demande
+        data.natureTravaux || "",         // E - Nature des travaux
+        data.address || "",               // F - Adresse des travaux
+        data.species || "",               // G - Espèce
+        data.dateDemandeDevis || "",      // H - Date de demande de devis
+        data.devisNumero || "",           // I - Devis n°
+        data.montantDevis || "",          // J - Montant du devis (€)
+        data.dateExecution || "",         // K - Date d’exécution des travaux
+        data.remarquesTravaux || "",      // L - Remarques
+        data.numeroBDC || "",             // M - N° bdc
+        data.numeroFacture || ""          // N - N° Facture
       ];
 
       const lastTravaux = sheetTravaux.getLastRow();
@@ -688,7 +667,7 @@ function doPost(e) {
 
     SpreadsheetApp.flush();
 
-    // ✅ HISTORIQUE (AJOUT) : état après + diff + log CREATE/UPDATE
+    // ✅ HISTORIQUE : état après + diff + log CREATE/UPDATE
     const afterObj = {
       id: data.id,
       lat: data.lat || "",
@@ -798,14 +777,13 @@ function colorEtatTravaux(sheet, rowIndex, etat) {
   }
 }
 
+// ✅ jsonResponse CORRIGÉ (ContentService ne supporte pas setHeader)
 function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-    .setHeader("Access-Control-Allow-Headers", "Content-Type");
+    .setMimeType(ContentService.MimeType.JSON);
 }
+
 
 function formatDateForInput(d) {
   if (!d) return "";
@@ -818,7 +796,6 @@ function formatDateForInput(d) {
 
   return `${yyyy}-${mm}-${dd}`;
 }
-
 
 // =========================
 // 📌 TRI AUTOMATIQUE FEUILLE ARBRES
@@ -835,26 +812,18 @@ function sortArbresSheet_(sheet) {
       { column: 5, ascending: true }  // espèce
     ]);
 
-    // ✅ IMPORTANT : ré-appliquer couleurs après tri
-    
   } catch (e) {
     Logger.log("Tri arbres erreur: " + e);
   }
 }
 
-
-
 // =========================
 // 📌 TRI AUTOMATIQUE FEUILLE TRAVAUX
-// Secteur (col 3) -> Etat (col 2) -> Date demande (col 4)
 // =========================
 function sortTravauxSheet_(sheetTravaux) {
   // ✅ Désactivé pour éviter les effets de style (couleur qui se propage)
-  // Si tu veux le tri, on pourra le remettre avec une approche "rebuild range"
   return;
 }
-
-
 
 // =========================
 // 🎨 RECOLOR TRAVAUX APRÈS TRI
@@ -886,7 +855,6 @@ function recolorArbresRows_(sheet) {
     colorRowByEtat(sheet, rowIndex, etat);
   }
 }
-
 
 // =========================
 // 🎯 COULEUR TRAVAUX PAR ID (FIABLE)
@@ -923,7 +891,6 @@ function recolorArbresById_(sheet) {
     colorRowByEtat(sheet, rowIndex, etat);
   }
 }
-
 
 // =========================
 // 🎯 RECOLOR 1 ARBRE PAR ID
