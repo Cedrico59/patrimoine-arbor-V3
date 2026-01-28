@@ -91,10 +91,20 @@ function isAdmin() {
   return (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
 
-function isPastilleTree(t){
-  // ici la "pastille" correspond à un état défini
-  return !!(t && t.etat && String(t.etat).trim() !== "");
+function isPastilleTree(t) {
+  if (!t || !t.etat) return false;
+
+  const etatsAvecPastille = [
+    "Dangereux (A abattre)",
+    "A surveiller",
+    "A élaguer (URGENT)",
+    "A élaguer (Moyen)",
+    "A élaguer (Faible)"
+  ];
+
+  return etatsAvecPastille.includes(String(t.etat).trim());
 }
+
 // =========================
 // 🔐 FILTRAGE PAR SECTEUR (FRONT)
 // =========================
@@ -1431,7 +1441,10 @@ if (selectedId) {
   t.secteur = secteurEl().value;
   t.address = addressEl().value.trim();
   t.tags = normalizeTags(tagsEl().value);
-  t.etat = etatEl().value || "";
+  
+  const etatValue = etatEl().value.trim();
+  t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
+
   t.dateDemande = dateDemandeEl().value;
   t.natureTravaux = natureTravauxEl().value.trim();
   t.dateDemandeDevis = dateDemandeDevisEl().value;
