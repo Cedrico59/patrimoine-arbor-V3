@@ -374,7 +374,7 @@ function getTreeIconScale(zoom) {
       case "Mairie - Quesne": return "#6A1B9A";
       case "Pont - Plouich - Clémenceau": return "#01a597ff";
       case "Cimetière Delcencerie": return "#083b19ff";
-      case "Cimetière Pont": return "#d9ff00";
+      case "Cimetière Pont": return "#bad80d";
       case "Hippodrome": return "#F9A825";
       case "Ferme aux Oies": return "#AD1457";
       default: return "#607D8B";
