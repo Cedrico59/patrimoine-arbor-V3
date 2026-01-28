@@ -36,8 +36,8 @@ var it = null;
     "Buisson-Delcencerie": "#51cf66",
     "Mairie-Quesne": "#fcc419",
     "Pont-Plouich-CLémenceau": "#9775fa",
-    "Cimetière Delcencerie": "#97733a",
-    "Cimetière Pont": "#ff922b",
+    "Cimetière Delcencerie": "#083b19ff",
+    "Cimetière Pont": "#d9ff00",
   };
 
   // =========================
@@ -374,7 +374,7 @@ function getTreeIconScale(zoom) {
       case "Mairie - Quesne": return "#6A1B9A";
       case "Pont - Plouich - Clémenceau": return "#01a597ff";
       case "Cimetière Delcencerie": return "#083b19ff";
-      case "Cimetière Pont": return "#C62828";
+      case "Cimetière Pont": return "#d9ff00";
       case "Hippodrome": return "#F9A825";
       case "Ferme aux Oies": return "#AD1457";
       default: return "#607D8B";
