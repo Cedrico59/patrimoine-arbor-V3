@@ -95,6 +95,22 @@ function isPastilleTree(t){
   // ici la "pastille" correspond à un état défini
   return !!(t && t.etat && String(t.etat).trim() !== "");
 }
+// =========================
+// 🔐 FILTRAGE PAR SECTEUR (FRONT)
+// =========================
+function getVisibleTrees() {
+  const role = localStorage.getItem("userRole");
+  const secteurUser = localStorage.getItem("userSecteur");
+
+  // 👑 Admin → tout voir
+  if (role === "admin") {
+    return trees;
+  }
+
+  // 👤 Compte secteur → uniquement son secteur
+  return trees.filter(t => t.secteur === secteurUser);
+}
+
 
 
 function applyTravauxLock() {
@@ -764,7 +780,7 @@ async function readFilesAsDataUrls(files) {
 
     if (!list || !count) return;
 
-    const filtered = trees.filter((t) => treeMatchesQuery(t, q));
+    const filtered = getVisibleTrees().filter((t) => treeMatchesQuery(t, q));
 
     count.textContent = `${filtered.length} / ${trees.length}`;
     list.innerHTML = "";
@@ -848,7 +864,7 @@ async function readFilesAsDataUrls(files) {
     if (!container) return;
 
     const counts = {};
-    for (const t of trees) {
+    for (const t of getVisibleTrees()) {
       const s = t.secteur || "Non défini";
       counts[s] = (counts[s] || 0) + 1;
     }
@@ -994,7 +1010,11 @@ function addOrUpdateMarker(t) {
   function renderMarkers() {
     for (const m of markers.values()) map.removeLayer(m);
     markers.clear();
-    for (const t of trees) addOrUpdateMarker(t);
+
+    const visibleTrees = getVisibleTrees();
+    for (const t of visibleTrees) {
+      addOrUpdateMarker(t);
+    }
   }
 
   function getQuartierFromLatLng(lat, lng) {
