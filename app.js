@@ -1,4 +1,4 @@
- (() => {
+(() => {
   "use strict";
 
   // =========================
@@ -69,14 +69,10 @@ function isAdmin() {
   return (sessionStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
 
-
+function isPastilleTree(t){
   // ici la "pastille" correspond à un état défini
- function isPastilleTree(t){
-  if (!t || !t.etat) return false;
-  const v = String(t.etat).trim();
-  return v !== "" && v !== "Aucun";
+  return !!(t && t.etat && String(t.etat).trim() !== "");
 }
- 
 
 
 function applyTravauxLock() {
@@ -268,12 +264,6 @@ await loadTreesFromSheets();
   // ICONS / COLORS
   // =========================
 function createTreeIcon(color = "#4CAF50", etat = "") {
-
-  // sécurité : aucun badge si "Aucun"
-  if (!etat || etat === "Aucun") {
-    etat = "";
-  }
-
   const g = "g_" + Math.random().toString(36).slice(2);
 
   let badge = "";
@@ -1402,11 +1392,6 @@ t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
   pendingPhotos = [];
 
   t.updatedAt = Date.now();
-
-// 🔒 normalisation état : jamais "Aucun" stocké
-if (t.etat === "Aucun") {
-  t.etat = "";
-}
 
   saveTreesLocal();        // 💾 local OK
   await syncToSheets(t);  // ☁️ Sheets (métadonnées seulement)
