@@ -1,27 +1,35 @@
 
-/* ===== VALIDER INTERVENTION ===== */
-function wireValidateIntervention() {
-  const btn = document.getElementById("btnValiderIntervention");
-  if (!btn) return;
-
-  btn.onclick = () => {
-    const txt = historyInterventionsEl().value.trim();
-    if (!txt) {
-      alert("Aucune intervention à valider.");
-      return;
-    }
-    const now = new Date().toLocaleString("fr-FR");
-    historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
-    alert("Intervention validée. Pense à enregistrer.");
-  };
-}
-
-/* FIX: prevent ReferenceError for stray `it` */
-var it = null;
 
 (() => {
   "use strict";
+/* =========================
+   ✅ HISTORIQUE INTERVENTIONS (AJOUT)
+========================= */
 
+function formatInterventionLine_() {
+  const get = (id) => (document.getElementById(id)?.value || "").trim();
+
+  const dateDemande = get("dateDemande");
+  const natureTravaux = get("natureTravaux");
+  const dateDemandeDevis = get("dateDemandeDevis");
+  const devisNumero = get("devisNumero");
+  const montantDevis = get("montantDevis");
+  const dateExecution = get("dateExecution");
+  const remarquesTravaux = get("remarquesTravaux");
+  const numeroBDC = get("numeroBDC");
+  const numeroFacture = get("numeroFacture");
+
+  const all = [dateDemande,natureTravaux,dateDemandeDevis,devisNumero,montantDevis,dateExecution,remarquesTravaux,numeroBDC,numeroFacture]
+    .some(v => v !== "");
+  if (!all) return "";
+
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+
+  return `[${yyyy}-${mm}-${dd}] dateDemande=${dateDemande} | natureTravaux=${natureTravaux} | dateDemandeDevis=${dateDemandeDevis} | devisNumero=${devisNumero} | montantDevis=${montantDevis} | dateExecution=${dateExecution} | remarquesTravaux=${remarquesTravaux} | numeroBDC=${numeroBDC} | numeroFacture=${numeroFacture}`;
+}
   // =========================
   // CONFIG
   // =========================
@@ -1030,7 +1038,8 @@ function addOrUpdateMarker(t) {
 
   async function loadQuartiersGeoJSON() {
     try {
-      const res = await fetch("quartiers-marcq.geojson");
+      const res = await fetch("data/quartiers-marcq.geojson");
+
       if (!res.ok) throw new Error("quartiers-marcq.geojson introuvable");
       const geojson = await res.json();
 
@@ -1560,13 +1569,7 @@ document.getElementById("agentModeBtn")?.addEventListener("click", () => {
 // appliquer au chargement
 applyAgentMode();
 
-  // =========================
-  // START
-  // =========================
 
-// =========================
-// START
-// =========================
 // =========================
 // START
 // =========================
@@ -1597,7 +1600,6 @@ async function startApp() {
   initMap();
   addLegendToMap();
   wireUI();
-  wireValidateIntervention();
   applyTravauxLock();
 
   await loadQuartiersGeoJSON();
@@ -1799,34 +1801,7 @@ document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
 
 
-/* =========================
-   ✅ HISTORIQUE INTERVENTIONS (AJOUT)
-========================= */
 
-function formatInterventionLine_() {
-  const get = (id) => (document.getElementById(id)?.value || "").trim();
-
-  const dateDemande = get("dateDemande");
-  const natureTravaux = get("natureTravaux");
-  const dateDemandeDevis = get("dateDemandeDevis");
-  const devisNumero = get("devisNumero");
-  const montantDevis = get("montantDevis");
-  const dateExecution = get("dateExecution");
-  const remarquesTravaux = get("remarquesTravaux");
-  const numeroBDC = get("numeroBDC");
-  const numeroFacture = get("numeroFacture");
-
-  const all = [dateDemande,natureTravaux,dateDemandeDevis,devisNumero,montantDevis,dateExecution,remarquesTravaux,numeroBDC,numeroFacture]
-    .some(v => v !== "");
-  if (!all) return "";
-
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,"0");
-  const dd = String(d.getDate()).padStart(2,"0");
-
-  return `[${yyyy}-${mm}-${dd}] dateDemande=${dateDemande} | natureTravaux=${natureTravaux} | dateDemandeDevis=${dateDemandeDevis} | devisNumero=${devisNumero} | montantDevis=${montantDevis} | dateExecution=${dateExecution} | remarquesTravaux=${remarquesTravaux} | numeroBDC=${numeroBDC} | numeroFacture=${numeroFacture}`;
-}
 
 function clearTravauxFields_() {
   ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"].forEach(id=>{
@@ -1847,17 +1822,12 @@ function updateRightPreviewHistory_(text) {
   if (box) box.textContent = text || "";
 }
 
-function getSelectedTreeObject_() {
-  if (typeof selectedTree !== "undefined" && selectedTree) return selectedTree;
-  if (typeof currentTree !== "undefined" && currentTree) return currentTree;
-  if (typeof selectedArbre !== "undefined" && selectedArbre) return selectedArbre;
-  return null;
+function setSelectedTreeHistory_(txt) {
+  if (!selectedId) return;
+  const t = getTreeById(selectedId);
+  if (t) t.historiqueInterventions = txt;
 }
 
-function setSelectedTreeHistory_(txt) {
-  const t = getSelectedTreeObject_();
-  if (t) t.historyInterventions = txt;
-}
 
 function handleValiderIntervention_() {
   const line = formatInterventionLine_();
@@ -1880,39 +1850,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-
-/* =========================
-   EXPORT PDF – ADMIN ONLY
-========================= */
-function exportArbrePDF(treeId) {
-  if (!isAdmin()) {
-    alert("⛔ Réservé aux administrateurs");
-    return;
-  }
-  postToGAS({ action: "exportArbrePDF", id: treeId })
-    .then(res => {
-      if (!res || !res.ok) {
-        alert("Erreur export PDF arbre");
-        return;
-      }
-      window.open(res.fileUrl, "_blank");
-    });
-}
-
-function exportAnnuelPDF() {
-  if (!isAdmin()) {
-    alert("⛔ Réservé aux administrateurs");
-    return;
-  }
-  const year = prompt("Année à exporter (ex : 2025)");
-  if (!year) return;
-
-  postToGAS({ action: "exportAnnuelPDF", year })
-    .then(res => {
-      if (!res || !res.ok) {
-        alert("Erreur export PDF annuel");
-        return;
-      }
-      alert("PDF annuel généré");
-    });
-}
