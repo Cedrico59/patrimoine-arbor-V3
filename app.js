@@ -1,3 +1,24 @@
+
+/* ===== VALIDER INTERVENTION ===== */
+function wireValidateIntervention() {
+  const btn = document.getElementById("btnValiderIntervention");
+  if (!btn) return;
+
+  btn.onclick = () => {
+    const txt = historyInterventionsEl().value.trim();
+    if (!txt) {
+      alert("Aucune intervention à valider.");
+      return;
+    }
+    const now = new Date().toLocaleString("fr-FR");
+    historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
+    alert("Intervention validée. Pense à enregistrer.");
+  };
+}
+
+/* FIX: prevent ReferenceError for stray `it` */
+var it = null;
+
 (() => {
   "use strict";
 
@@ -15,8 +36,8 @@
     "Buisson-Delcencerie": "#51cf66",
     "Mairie-Quesne": "#fcc419",
     "Pont-Plouich-CLémenceau": "#9775fa",
-    "Cimetière Delcencerie": "#97733a",
-    "Cimetière Pont": "#ff922b",
+    "Cimetière Delcencerie": "#083b19ff",
+    "Cimetière Pont": "#d9ff00",
   };
 
   // =========================
@@ -28,9 +49,10 @@
 
   let trees = [];
   let selectedId = null;
+  let legendControl = null; // ✅ éviter double légende
   let lastDeletedTree = null;
   let pendingPhotos = [];
-let authToken = sessionStorage.getItem("authToken");
+let authToken = localStorage.getItem("authToken");
 
 // ------------------------------
 // 🔐 Déconnexion
@@ -42,9 +64,9 @@ function updateLogoutButtonVisibility() {
 }
 
 function logout() {
-  sessionStorage.removeItem("authToken");
-  sessionStorage.removeItem("userRole");
-  sessionStorage.removeItem("userSecteur");
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("userSecteur");
 
   authToken = null;
   isAuthenticated = false;
@@ -66,13 +88,29 @@ let isAuthenticated = !!authToken;
 // 🔒 DROITS: verrouillage Travaux (sauf admin)
 // =========================
 function isAdmin() {
-  return (sessionStorage.getItem("userRole") || "").toLowerCase() === "admin";
+  return (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
 
 function isPastilleTree(t){
   // ici la "pastille" correspond à un état défini
   return !!(t && t.etat && String(t.etat).trim() !== "");
 }
+// =========================
+// 🔐 FILTRAGE PAR SECTEUR (FRONT)
+// =========================
+function getVisibleTrees() {
+  const role = localStorage.getItem("userRole");
+  const secteurUser = localStorage.getItem("userSecteur");
+
+  // 👑 Admin → tout voir
+  if (role === "admin") {
+    return trees;
+  }
+
+  // 👤 Compte secteur → uniquement son secteur
+  return trees.filter(t => t.secteur === secteurUser);
+}
+
 
 
 function applyTravauxLock() {
@@ -135,6 +173,7 @@ function applyTravauxLock() {
   const tagsEl = () => el("tags");
   const etatEl = () => el("etat");
   const commentEl = () => el("comment");
+const historyInterventionsEl = () => el("historyInterventions");
   const photosEl = () => el("photos");
   const galleryEl = () => el("gallery");
 
@@ -351,7 +390,7 @@ function getTreeIconScale(zoom) {
       case "Mairie - Quesne": return "#6A1B9A";
       case "Pont - Plouich - Clémenceau": return "#01a597ff";
       case "Cimetière Delcencerie": return "#083b19ff";
-      case "Cimetière Pont": return "#C62828";
+      case "Cimetière Pont": return "#df54d3";
       case "Hippodrome": return "#F9A825";
       case "Ferme aux Oies": return "#AD1457";
       default: return "#607D8B";
@@ -373,6 +412,12 @@ const SECTEURS = [
   "Ferme aux Oies"
 ];
 function addLegendToMap() {
+  // ✅ éviter double légende si startApp() est relancé
+  if (legendControl) {
+    try { map.removeControl(legendControl); } catch (e) {}
+    legendControl = null;
+  }
+
   const legend = L.control({ position: "bottomright" });
 
   legend.onAdd = function () {
@@ -408,8 +453,9 @@ function addLegendToMap() {
   };
 
   legend.addTo(map);
+  legendControl = legend;
 
-  setTimeout(() => {
+setTimeout(() => {
     const btn = document.getElementById("legendToggleBtn");
     const content = document.getElementById("legendContent");
     if (!btn || !content) return;
@@ -734,7 +780,7 @@ async function readFilesAsDataUrls(files) {
 
     if (!list || !count) return;
 
-    const filtered = trees.filter((t) => treeMatchesQuery(t, q));
+    const filtered = getVisibleTrees().filter((t) => treeMatchesQuery(t, q));
 
     count.textContent = `${filtered.length} / ${trees.length}`;
     list.innerHTML = "";
@@ -818,7 +864,7 @@ async function readFilesAsDataUrls(files) {
     if (!container) return;
 
     const counts = {};
-    for (const t of trees) {
+    for (const t of getVisibleTrees()) {
       const s = t.secteur || "Non défini";
       counts[s] = (counts[s] || 0) + 1;
     }
@@ -845,7 +891,8 @@ async function readFilesAsDataUrls(files) {
   addressEl().value = "";
   tagsEl().value = "";
   commentEl().value = "";
-document.getElementById("photoCarousel")?.classList.add("hidden");
+  historyInterventionsEl().value = "";
+  document.getElementById("photoCarousel")?.classList.add("hidden");
 
   const cam = document.getElementById("cameraInput");
   const gal = document.getElementById("galleryInput");
@@ -907,7 +954,7 @@ pendingPhotos = [];
     numeroFactureEl().value = t.numeroFacture || "";
 
     commentEl().value = t.comment || "";
-
+    historyInterventionsEl().value = t.historiqueInterventions || "";
 
   // ⚠️ Affichage des photos UNIQUEMENT si arbre déjà enregistré
 if (t.photos && t.photos.length > 0) {
@@ -963,7 +1010,11 @@ function addOrUpdateMarker(t) {
   function renderMarkers() {
     for (const m of markers.values()) map.removeLayer(m);
     markers.clear();
-    for (const t of trees) addOrUpdateMarker(t);
+
+    const visibleTrees = getVisibleTrees();
+    for (const t of visibleTrees) {
+      addOrUpdateMarker(t);
+    }
   }
 
   function getQuartierFromLatLng(lat, lng) {
@@ -1087,13 +1138,21 @@ function locateUserGPS() {
   // INIT
   // =========================
   function initMap() {
+  // ✅ évite Leaflet "Map container is already initialized"
+  if (window._leafletMap) {
+    map = window._leafletMap;
+    return window._leafletMap;
+  }
     map = L.map("map", {
       zoomControl: true,
       minZoom: 13,
       maxZoom: 18,
     }).setView(MARCQ_CENTER, 14);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    
+
+    window._leafletMap = map; // ✅ FIX: stocke la map
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap",
     }).addTo(map);
@@ -1372,9 +1431,7 @@ if (selectedId) {
   t.secteur = secteurEl().value;
   t.address = addressEl().value.trim();
   t.tags = normalizeTags(tagsEl().value);
-  const etatValue = etatEl().value.trim();
-t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
-
+  t.etat = etatEl().value || "";
   t.dateDemande = dateDemandeEl().value;
   t.natureTravaux = natureTravauxEl().value.trim();
   t.dateDemandeDevis = dateDemandeDevisEl().value;
@@ -1386,6 +1443,7 @@ t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
   t.numeroFacture = numeroFactureEl().value.trim();
 
   t.comment = commentEl().value.trim();
+  t.historiqueInterventions = historyInterventionsEl().value.trim();
 
   // 🔥 photos : fusion définitive
   t.photos = [...(t.photos || []), ...pendingPhotos];
@@ -1421,6 +1479,7 @@ t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
         tags: normalizeTags(tagsEl().value),
         etat: etatEl().value || "",
         comment: commentEl().value.trim(),
+        historiqueInterventions: historyInterventionsEl().value.trim(),
         photos,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -1457,7 +1516,18 @@ async function loadTreesFromSheets() {
 
     if (!res.ok) throw new Error("Sheets indisponible: " + res.status);
 
-    const data = await res.json();
+    const txt = await res.text();
+    const data = JSON.parse(txt);
+    // 🔐 Si Apps Script renvoie "unauthorized"
+    if (data && data.ok === false && data.error === "unauthorized") {
+      console.warn("🔒 Token expiré → retour login");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userSecteur");
+      document.getElementById("loginOverlay").style.display = "flex";
+      return;
+    }
+
     if (!Array.isArray(data)) throw new Error("Format Sheets invalide");
 
     trees = data;
@@ -1501,11 +1571,16 @@ applyAgentMode();
 // START
 // =========================
 document.addEventListener("DOMContentLoaded", async () => {
-  if (!isAuthenticated) {
+  // 🔄 Relire le token au démarrage (persistant)
+  authToken = localStorage.getItem("authToken");
+
+  if (!authToken) {
+    console.warn("🔒 Pas de token → affichage login");
     document.getElementById("loginOverlay").style.display = "flex";
     return;
   }
 
+  // ✅ Token présent → on lance l'app + charge Sheets
   await startApp();
 });
 
@@ -1522,6 +1597,7 @@ async function startApp() {
   initMap();
   addLegendToMap();
   wireUI();
+  wireValidateIntervention();
   applyTravauxLock();
 
   await loadQuartiersGeoJSON();
@@ -1534,19 +1610,9 @@ async function startApp() {
 
   console.log("✅ App chargée (auth OK).");
 }
-async function startApp() {
-  await loadTreesFromSheets();
-  initMap();
-  addLegendToMap();
-  wireUI();
-  applyTravauxLock();
-  await loadQuartiersGeoJSON();
-  await loadCityContourAndLock();
-  renderMarkers();
-  renderList();
-  renderSecteurCount();
-  setSelected(null);
-}
+
+
+
 
 
   let carouselIndex = 0;
@@ -1643,19 +1709,19 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
       })
     });
 
-    const data = await res.json();
-
+    const txt = await res.text();
+    const data = JSON.parse(txt);
     if (!data.ok) {
       err.textContent = "Mot de passe incorrect";
       return;
     }
 
     authToken = data.token;
-    sessionStorage.setItem("authToken", authToken);
+    localStorage.setItem("authToken", authToken);
 
     // ✅ bonus : stocker infos user
-    sessionStorage.setItem("userRole", data.role || "");
-    sessionStorage.setItem("userSecteur", data.secteur || "");
+    localStorage.setItem("userRole", data.role || "");
+    localStorage.setItem("userSecteur", data.secteur || "");
 
     isAuthenticated = true;
 
@@ -1673,24 +1739,7 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
 document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
 
-//---------Tableau élagage---------------
 
-// dans l'objet t (tree)
-t.travaux = [
-  {
-    id: crypto.randomUUID(),
-    dateDemande: "",
-    natureTravaux: "",
-    dateDemandeDevis: "",
-    devisNumero: "",
-    montantDevis: "",
-    dateExecution: "",
-    remarques: "",
-    numeroBDC: "",
-    numeroFacture: "",
-    comment:""
-  }
-];
 
 
 })();
@@ -1699,68 +1748,82 @@ t.travaux = [
 
 
 
-// =========================
-// HISTORIQUE INTERVENTIONS
-// =========================
-function isSecteurUser_() {
-  try { return (sessionStorage.getItem("userRole") || "").trim() === "secteur"; } catch(e) { return false; }
+/* =========================
+   ✅ HISTORIQUE INTERVENTIONS (AJOUT)
+========================= */
+
+function formatInterventionLine_() {
+  const get = (id) => (document.getElementById(id)?.value || "").trim();
+
+  const dateDemande = get("dateDemande");
+  const natureTravaux = get("natureTravaux");
+  const dateDemandeDevis = get("dateDemandeDevis");
+  const devisNumero = get("devisNumero");
+  const montantDevis = get("montantDevis");
+  const dateExecution = get("dateExecution");
+  const remarquesTravaux = get("remarquesTravaux");
+  const numeroBDC = get("numeroBDC");
+  const numeroFacture = get("numeroFacture");
+
+  const all = [dateDemande,natureTravaux,dateDemandeDevis,devisNumero,montantDevis,dateExecution,remarquesTravaux,numeroBDC,numeroFacture]
+    .some(v => v !== "");
+  if (!all) return "";
+
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+
+  return `[${yyyy}-${mm}-${dd}] dateDemande=${dateDemande} | natureTravaux=${natureTravaux} | dateDemandeDevis=${dateDemandeDevis} | devisNumero=${devisNumero} | montantDevis=${montantDevis} | dateExecution=${dateExecution} | remarquesTravaux=${remarquesTravaux} | numeroBDC=${numeroBDC} | numeroFacture=${numeroFacture}`;
 }
-function formatInterventionLine_(t) {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth()+1).padStart(2,"0");
-  const dd = String(today.getDate()).padStart(2,"0");
-  const stamp = `${yyyy}-${mm}-${dd}`;
-  const parts = [
-    `dateDemande=${t.dateDemande||""}`,
-    `natureTravaux=${t.natureTravaux||""}`,
-    `dateDemandeDevis=${t.dateDemandeDevis||""}`,
-    `devisNumero=${t.devisNumero||""}`,
-    `montantDevis=${t.montantDevis||""}`,
-    `dateExecution=${t.dateExecution||""}`,
-    `remarquesTravaux=${t.remarquesTravaux||""}`,
-    `numeroBDC=${t.numeroBDC||""}`,
-    `numeroFacture=${t.numeroFacture||""}`
-  ];
-  return `[${stamp}] ` + parts.join(" | ");
-}
-function lockHistoriqueInterventionsUI_() {
-  const g = document.getElementById("historyInterventionsGroup");
-  const ta = document.getElementById("historyInterventions");
-  const btn = document.getElementById("btnValiderIntervention");
-  if (!g || !ta || !btn) return;
-  if (isSecteurUser_()) {
-    g.style.display = "none";
-    btn.style.display = "none";
-  } else {
-    g.style.display = "";
-    btn.style.display = "";
-    ta.readOnly = false;
-    ta.disabled = false;
-    btn.disabled = false;
-  }
-}
-function bindValiderIntervention_(getCurrentTree, saveCurrentTree) {
-  const btn = document.getElementById("btnValiderIntervention");
-  const hist = document.getElementById("historyInterventions");
-  if (!btn || !hist) return;
 
-  btn.addEventListener("click", async () => {
-    const tree = getCurrentTree();
-    if (!tree || !tree.id) return;
-
-    const line = formatInterventionLine_(tree);
-    const current = (hist.value || "").trim();
-    hist.value = current ? (line + "\n" + current) : line; // plus récent en haut
-    tree.historiqueInterventions = hist.value;
-
-    // vider champs travaux
-    const ids = ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"];
-    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-    // mettre aussi vide dans l'objet
-    tree.dateDemande=""; tree.natureTravaux=""; tree.dateDemandeDevis=""; tree.devisNumero=""; tree.montantDevis="";
-    tree.dateExecution=""; tree.remarquesTravaux=""; tree.numeroBDC=""; tree.numeroFacture="";
-
-    await saveCurrentTree(tree);
+function clearTravauxFields_() {
+  ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value="";
   });
 }
+
+function appendToHistoryUI_(line) {
+  const ta = document.getElementById("historyInterventions");
+  if (!ta) return;
+  const cur = (ta.value || "").trim();
+  ta.value = cur ? (cur + "\n" + line) : line;
+}
+
+function updateRightPreviewHistory_(text) {
+  const box = document.getElementById("rightHistoryInterventions");
+  if (box) box.textContent = text || "";
+}
+
+function getSelectedTreeObject_() {
+  if (typeof selectedTree !== "undefined" && selectedTree) return selectedTree;
+  if (typeof currentTree !== "undefined" && currentTree) return currentTree;
+  if (typeof selectedArbre !== "undefined" && selectedArbre) return selectedArbre;
+  return null;
+}
+
+function setSelectedTreeHistory_(txt) {
+  const t = getSelectedTreeObject_();
+  if (t) t.historyInterventions = txt;
+}
+
+function handleValiderIntervention_() {
+  const line = formatInterventionLine_();
+  if (!line) return;
+  appendToHistoryUI_(line);
+
+  const txt = (document.getElementById("historyInterventions")?.value || "").trim();
+  setSelectedTreeHistory_(txt);
+  updateRightPreviewHistory_(txt);
+
+  clearTravauxFields_();
+
+  const sb = document.getElementById("saveBtn");
+  if (sb) sb.click();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btnValiderIntervention");
+  if (btn) btn.addEventListener("click", handleValiderIntervention_);
+});
