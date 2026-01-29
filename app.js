@@ -69,10 +69,14 @@ function isAdmin() {
   return (sessionStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
 
-function isPastilleTree(t){
+
   // ici la "pastille" correspond à un état défini
-  return !!(t && t.etat && String(t.etat).trim() !== "");
+ function isPastilleTree(t){
+  if (!t || !t.etat) return false;
+  const v = String(t.etat).trim();
+  return v !== "" && v !== "Aucun";
 }
+ 
 
 
 function applyTravauxLock() {
@@ -264,6 +268,12 @@ await loadTreesFromSheets();
   // ICONS / COLORS
   // =========================
 function createTreeIcon(color = "#4CAF50", etat = "") {
+
+  // sécurité : aucun badge si "Aucun"
+  if (!etat || etat === "Aucun") {
+    etat = "";
+  }
+
   const g = "g_" + Math.random().toString(36).slice(2);
 
   let badge = "";
@@ -1393,6 +1403,11 @@ t.etat = (etatValue === "" || etatValue === "Aucun") ? "" : etatValue;
 
   t.updatedAt = Date.now();
 
+// 🔒 normalisation état : jamais "Aucun" stocké
+if (t.etat === "Aucun") {
+  t.etat = "";
+}
+
   saveTreesLocal();        // 💾 local OK
   await syncToSheets(t);  // ☁️ Sheets (métadonnées seulement)
 
@@ -1534,19 +1549,7 @@ async function startApp() {
 
   console.log("✅ App chargée (auth OK).");
 }
-async function startApp() {
-  await loadTreesFromSheets();
-  initMap();
-  addLegendToMap();
-  wireUI();
-  applyTravauxLock();
-  await loadQuartiersGeoJSON();
-  await loadCityContourAndLock();
-  renderMarkers();
-  renderList();
-  renderSecteurCount();
-  setSelected(null);
-}
+
 
 
   let carouselIndex = 0;
