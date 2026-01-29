@@ -285,7 +285,7 @@ function handleTreesAndTravauxGet_() {
         try { return JSON.parse(row[12]); }
         catch { return []; }
       })(),
-      etat: (travaux.etat || row[13] || ""),
+      etat: String(row[13] || "").trim(),
       secteurTravaux: (travaux.secteur || ""),
       updatedAt: row[14] ? Number(row[14]) : null,
 
@@ -585,6 +585,8 @@ function doPost(e) {
         }
       }
     }
+
+
 
     /* ===== TRAVAUX (Élagages / Abattages) ===== */
     const etatArbre = String(data.etat || "").trim();
@@ -927,3 +929,4 @@ function recolorOneTravauxById_(sheetTravaux, treeId) {
     }
   }
 }
+
