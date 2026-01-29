@@ -29,7 +29,54 @@ function formatInterventionLine_() {
   const dd = String(d.getDate()).padStart(2,"0");
 
   return `[${yyyy}-${mm}-${dd}] dateDemande=${dateDemande} | natureTravaux=${natureTravaux} | dateDemandeDevis=${dateDemandeDevis} | devisNumero=${devisNumero} | montantDevis=${montantDevis} | dateExecution=${dateExecution} | remarquesTravaux=${remarquesTravaux} | numeroBDC=${numeroBDC} | numeroFacture=${numeroFacture}`;
+}function clearTravauxFields_() {
+  ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value="";
+  });
 }
+
+function appendToHistoryUI_(line) {
+  const ta = document.getElementById("historyInterventions");
+  if (!ta) return;
+  const cur = (ta.value || "").trim();
+  ta.value = cur ? (cur + "\n" + line) : line;
+}
+
+function updateRightPreviewHistory_(text) {
+  const box = document.getElementById("rightHistoryInterventions");
+  if (box) box.textContent = text || "";
+}
+
+function setSelectedTreeHistory_(txt) {
+  if (!selectedId) return;
+  const t = getTreeById(selectedId);
+  if (t) t.historiqueInterventions = txt;
+}
+
+
+function handleValiderIntervention_() {
+  const line = formatInterventionLine_();
+  if (!line) return;
+  appendToHistoryUI_(line);
+
+  const txt = (document.getElementById("historyInterventions")?.value || "").trim();
+  setSelectedTreeHistory_(txt);
+  updateRightPreviewHistory_(txt);
+
+  clearTravauxFields_();
+
+  const sb = document.getElementById("saveBtn");
+  if (sb) sb.click();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btnValiderIntervention");
+  if (btn) btn.addEventListener("click", handleValiderIntervention_);
+});
+
+
+
   // =========================
   // CONFIG
   // =========================
@@ -1801,52 +1848,5 @@ document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
 
 
-
-
-function clearTravauxFields_() {
-  ["dateDemande","natureTravaux","dateDemandeDevis","devisNumero","montantDevis","dateExecution","remarquesTravaux","numeroBDC","numeroFacture"].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.value="";
-  });
-}
-
-function appendToHistoryUI_(line) {
-  const ta = document.getElementById("historyInterventions");
-  if (!ta) return;
-  const cur = (ta.value || "").trim();
-  ta.value = cur ? (cur + "\n" + line) : line;
-}
-
-function updateRightPreviewHistory_(text) {
-  const box = document.getElementById("rightHistoryInterventions");
-  if (box) box.textContent = text || "";
-}
-
-function setSelectedTreeHistory_(txt) {
-  if (!selectedId) return;
-  const t = getTreeById(selectedId);
-  if (t) t.historiqueInterventions = txt;
-}
-
-
-function handleValiderIntervention_() {
-  const line = formatInterventionLine_();
-  if (!line) return;
-  appendToHistoryUI_(line);
-
-  const txt = (document.getElementById("historyInterventions")?.value || "").trim();
-  setSelectedTreeHistory_(txt);
-  updateRightPreviewHistory_(txt);
-
-  clearTravauxFields_();
-
-  const sb = document.getElementById("saveBtn");
-  if (sb) sb.click();
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("btnValiderIntervention");
-  if (btn) btn.addEventListener("click", handleValiderIntervention_);
-});
 
 
