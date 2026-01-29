@@ -183,6 +183,8 @@ const historyInterventionsEl = () => el("historyInterventions");
   const exportBtn = () => el("exportBtn");
   const importBtn = () => el("importBtn");
   const importFile = () => el("importFile");
+  const exportHistoryPdfBtn = () => el("exportHistoryPdfBtn");
+  const exportTreePdfBtn = () => el("exportTreePdfBtn");
 
   const dateDemandeEl = () => el("dateDemande");
 const natureTravauxEl = () => el("natureTravaux");
@@ -222,6 +224,51 @@ async function postToGAS(payload) {
   } catch {
     return { ok: false, raw: text };
   }
+}
+
+// =========================
+// PDF EXPORTS
+// =========================
+async function openPdfFromServer(action, payload = {}) {
+  try {
+    const res = await postToGAS({ action, ...payload });
+    if (!res || res.ok !== true) {
+      const msg = res?.error || res?.raw || "Export PDF impossible.";
+      alert(msg);
+      return;
+    }
+
+    // Ouvre le PDF dans un nouvel onglet
+    if (res.url) {
+      window.open(res.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // fallback : si un base64 est renvoyé (non utilisé par défaut)
+    if (res.base64 && res.mimeType) {
+      const a = document.createElement("a");
+      a.href = `data:${res.mimeType};base64,${res.base64}`;
+      a.download = res.filename || "export.pdf";
+      a.click();
+      return;
+    }
+
+    alert("Export PDF terminé, mais aucun lien n'a été renvoyé.");
+  } catch (e) {
+    alert("Export PDF impossible : " + (e?.message || e));
+  }
+}
+
+async function exportTreePdf(id) {
+  if (!id) return alert("Aucun arbre sélectionné.");
+  await openPdfFromServer("exportTreePdf", { id });
+}
+
+async function exportHistoryPdf() {
+  // option : demander une année, sinon toutes
+  const input = prompt("Année (ex: 2024) — laisse vide pour TOUTES les années :", "");
+  const year = (input || "").trim();
+  await openPdfFromServer("exportHistoryPdf", { year });
 }
 
 
@@ -925,6 +972,7 @@ pendingPhotos = [];
       treeIdEl().value = "";
       clearForm(false);
       renderTreePreview(null);
+      if (exportTreePdfBtn()) exportTreePdfBtn().disabled = true;
       return;
     }
 
@@ -965,6 +1013,8 @@ if (t.photos && t.photos.length > 0) {
 }
 
 renderTreePreview(t);
+
+    if (exportTreePdfBtn()) exportTreePdfBtn().disabled = false;
 
   }
 
@@ -1274,6 +1324,16 @@ pickGalleryBtn.onclick = () => {
       a.click();
       URL.revokeObjectURL(url);
     };
+
+    // 📄 PDF – Historique des interventions (toutes années ou une année)
+    if (exportHistoryPdfBtn()) {
+      exportHistoryPdfBtn().onclick = () => exportHistoryPdf();
+    }
+
+    // 📄 PDF – Fiche arbre (arbre sélectionné)
+    if (exportTreePdfBtn()) {
+      exportTreePdfBtn().onclick = () => exportTreePdf(selectedId);
+    }
 const toggleListBtn = el("toggleListBtn");
 const treeListWrapper = el("treeListWrapper");
 const gpsBtn = el("gpsBtn");

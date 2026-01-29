@@ -427,6 +427,27 @@ function doPost(e) {
       return ok({ status: "NOT_FOUND" });
     }
 
+    /* =========================
+       📄 EXPORT PDF
+       - exportHistoryPdf : historique interventions regroupé par année
+       - exportTreePdf    : fiche arbre + historique complet
+    ========================= */
+    if (data.action === "exportHistoryPdf") {
+      const year = String(data.year || "").trim();
+      const pdf = exportHistoryPdf_(year);
+      // ✅ HISTORIQUE (audit)
+      logHistory_(meta, "EXPORT_HISTORY_PDF", year || "ALL", { year: year || "ALL" });
+      return jsonResponse({ ok: true, url: pdf.url, fileId: pdf.fileId, filename: pdf.filename });
+    }
+
+    if (data.action === "exportTreePdf" && data.id) {
+      const treeId = String(data.id).trim();
+      const pdf = exportTreePdf_(treeId);
+      // ✅ HISTORIQUE (audit)
+      logHistory_(meta, "EXPORT_TREE_PDF", treeId, { treeId });
+      return jsonResponse({ ok: true, url: pdf.url, fileId: pdf.fileId, filename: pdf.filename });
+    }
+
 // 🔒 SÉCURITÉ SECTEUR :
     // un compte secteur ne peut enregistrer que dans son secteur
     if (meta && meta.role === "secteur") {
@@ -928,5 +949,292 @@ function recolorOneTravauxById_(sheetTravaux, treeId) {
       return;
     }
   }
+}
+
+/* =========================
+   📄 EXPORT PDF (HISTORIQUE + FICHE ARBRE)
+   - Génération HTML -> PDF via HtmlService
+   - Stockage dans un sous-dossier Drive (Exports_PDF)
+========================= */
+
+function getOrCreateExportsFolder_() {
+  const root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const name = "Exports_PDF";
+  const it = root.getFoldersByName(name);
+  return it.hasNext() ? it.next() : root.createFolder(name);
+}
+
+function safeFileName_(s) {
+  return String(s || "")
+    .replace(/[\\/:*?\"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function driveFileToDataUrl_(driveId) {
+  if (!driveId) return "";
+  try {
+    const f = DriveApp.getFileById(driveId);
+    const blob = f.getBlob();
+    const bytes = blob.getBytes();
+    const b64 = Utilities.base64Encode(bytes);
+    const mime = blob.getContentType() || f.getMimeType() || "application/octet-stream";
+    return `data:${mime};base64,${b64}`;
+  } catch (e) {
+    Logger.log("driveFileToDataUrl_ error: " + e);
+    return "";
+  }
+}
+
+function exportPdfFromHtml_(html, filename) {
+  const folder = getOrCreateExportsFolder_();
+
+  const htmlBlob = HtmlService.createHtmlOutput(html).getBlob();
+  const pdfBlob = htmlBlob.getAs(MimeType.PDF).setName(filename);
+
+  const file = folder.createFile(pdfBlob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return {
+    fileId: file.getId(),
+    url: file.getUrl(),
+    filename
+  };
+}
+
+function pdfBaseCss_() {
+  return `
+    <style>
+      @page { margin: 18mm 14mm; }
+      body { font-family: Arial, Helvetica, sans-serif; color:#111; font-size:12px; }
+      h1 { font-size:18px; margin:0 0 8px; }
+      h2 { font-size:14px; margin:18px 0 8px; border-bottom: 1px solid #e5e7eb; padding-bottom:6px; }
+      .muted { color:#6b7280; }
+      .meta { margin: 6px 0 0; }
+      .box { border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin:10px 0; }
+      .grid { width:100%; border-collapse: collapse; }
+      .grid td { padding:6px 8px; vertical-align: top; }
+      .grid td:first-child{ width: 34%; color:#374151; }
+      .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#f3f4f6; border:1px solid #e5e7eb; font-size:11px; }
+      .photo { width:100%; max-height:260px; object-fit: contain; border-radius:10px; border:1px solid #e5e7eb; }
+      .list { margin:0; padding-left:16px; }
+      .list li { margin: 6px 0; }
+      .sep { height:1px; background:#e5e7eb; margin:14px 0; }
+      .page-break { page-break-before: always; }
+      .small { font-size: 11px; }
+      .k { font-weight:700; }
+    </style>
+  `;
+}
+
+function findTreeRow_(treeId) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
+  const last = sheet.getLastRow();
+  if (last < 2) return null;
+  const values = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][1]).trim() === String(treeId).trim()) {
+      return { rowIndex: i + 2, row: values[i] };
+    }
+  }
+  return null;
+}
+
+function parsePhotos_(raw) {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function splitInterventions_(txt) {
+  return String(txt || "")
+    .split(/\r?\n/)
+    .map(s => String(s || "").trim())
+    .filter(Boolean);
+}
+
+function extractYearFromInterventionLine_(line) {
+  // Ex: "🛠 29/01/2026 10:45:00 — ..." ou "29/01/2026 — ..."
+  const m = String(line || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return "";
+  return m[3];
+}
+
+function extractDateLabel_(line) {
+  // renvoie le morceau "dd/mm/yyyy ..." si présent
+  const m = String(line || "").match(/(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
+  return m ? m[1] : "";
+}
+
+function exportTreePdf_(treeId) {
+  const found = findTreeRow_(treeId);
+  if (!found) {
+    throw new Error("Arbre introuvable : " + treeId);
+  }
+
+  const r = found.row;
+
+  const t = {
+    id: r[1],
+    lat: r[2],
+    lng: r[3],
+    species: r[4],
+    height: r[5],
+    dbh: r[6],
+    secteur: r[7],
+    address: r[8],
+    tags: r[9],
+    historiqueInterventions: r[10],
+    comment: r[11],
+    photos: parsePhotos_(r[12]),
+    etat: r[13],
+    updatedAt: r[14]
+  };
+
+  const firstPhotoId = t.photos?.[0]?.driveId || "";
+  const photoDataUrl = firstPhotoId ? driveFileToDataUrl_(firstPhotoId) : "";
+
+  const interventions = splitInterventions_(t.historiqueInterventions);
+  const generatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+
+  const html = `
+    <html><head><meta charset="utf-8">${pdfBaseCss_()}</head><body>
+      <h1>Fiche de l’arbre — ${safeFileName_(t.id)}</h1>
+      <div class="muted small">Exporté le ${generatedAt}</div>
+
+      ${photoDataUrl ? `<div class="box"><img class="photo" src="${photoDataUrl}" /></div>` : ``}
+
+      <div class="box">
+        <table class="grid">
+          <tr><td class="k">ID</td><td>${t.id || "—"}</td></tr>
+          <tr><td class="k">Espèce</td><td>${t.species || "—"}</td></tr>
+          <tr><td class="k">Secteur</td><td>${t.secteur || "—"}</td></tr>
+          <tr><td class="k">Adresse</td><td>${t.address || "—"}</td></tr>
+          <tr><td class="k">Coordonnées</td><td>${t.lat || "—"}, ${t.lng || "—"}</td></tr>
+          <tr><td class="k">Hauteur estimée</td><td>${(t.height !== "" && t.height !== null && t.height !== undefined) ? (t.height + " m") : "—"}</td></tr>
+          <tr><td class="k">Diamètre tronc</td><td>${(t.dbh !== "" && t.dbh !== null && t.dbh !== undefined) ? (t.dbh + " cm") : "—"}</td></tr>
+          <tr><td class="k">État</td><td>${t.etat || "—"}</td></tr>
+          <tr><td class="k">Tags</td><td>${t.tags || "—"}</td></tr>
+        </table>
+      </div>
+
+      <div class="box">
+        <div class="k">Commentaire</div>
+        <div class="muted" style="white-space:pre-wrap">${(t.comment || "—").toString().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>
+
+      <h2>Historique des interventions</h2>
+      ${interventions.length ? `
+        <ul class="list">
+          ${interventions.map(x => {
+            const safe = x.toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return `<li>${safe}</li>`;
+          }).join('')}
+        </ul>
+      ` : `<div class="muted">Aucune intervention enregistrée.</div>`}
+    </body></html>
+  `;
+
+  const filename = safeFileName_(`Fiche_Arbre_${t.id}.pdf`);
+  return exportPdfFromHtml_(html, filename);
+}
+
+function exportHistoryPdf_(year) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
+  const last = sheet.getLastRow();
+  if (last < 2) {
+    throw new Error("Aucun arbre dans la base.");
+  }
+
+  const rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
+  const byYear = {}; // year -> entries[]
+
+  rows.forEach(r => {
+    const treeId = r[1];
+    const species = r[4];
+    const secteur = r[7];
+    const address = r[8];
+    const hist = r[10];
+
+    const lines = splitInterventions_(hist);
+    lines.forEach(line => {
+      const y = extractYearFromInterventionLine_(line);
+      if (!y) return;
+      if (year && String(year).trim() && String(y) !== String(year).trim()) return;
+
+      (byYear[y] = byYear[y] || []).push({
+        treeId,
+        species,
+        secteur,
+        address,
+        dateLabel: extractDateLabel_(line),
+        line
+      });
+    });
+  });
+
+  const years = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
+  const generatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
+
+  const title = year && String(year).trim()
+    ? `Historique des interventions — ${String(year).trim()}`
+    : "Historique des interventions — Toutes années";
+
+  let body = `
+    <h1>${title}</h1>
+    <div class="muted small">Exporté le ${generatedAt}</div>
+  `;
+
+  if (years.length === 0) {
+    body += `<div class="box"><div class="muted">Aucune intervention trouvée${year ? " pour l’année " + year : ""}.</div></div>`;
+  } else {
+    years.forEach((y, idx) => {
+      const entries = byYear[y] || [];
+      if (!entries.length) return;
+
+      // tri : d'abord par date (si possible), sinon par texte
+      entries.sort((a, b) => {
+        const da = a.dateLabel || "";
+        const db = b.dateLabel || "";
+        return db.localeCompare(da);
+      });
+
+      body += `
+        ${idx ? '<div class="page-break"></div>' : ''}
+        <h2>Année ${y} <span class="badge">${entries.length} intervention(s)</span></h2>
+        <div class="box">
+          <table class="grid" style="border-collapse:separate; border-spacing:0 6px;">
+            <tr>
+              <td class="k">Date</td>
+              <td class="k">Arbre</td>
+              <td class="k">Secteur / Adresse</td>
+              <td class="k">Intervention</td>
+            </tr>
+            ${entries.map(e => {
+              const safeLine = String(e.line || "").replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              const safeAddr = String((e.secteur || "") + (e.address ? " • " + e.address : "")).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              const safeTree = String((e.treeId || "") + (e.species ? " • " + e.species : "")).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              return `
+                <tr>
+                  <td>${(e.dateLabel || "—")}</td>
+                  <td>${safeTree || "—"}</td>
+                  <td>${safeAddr || "—"}</td>
+                  <td style="white-space:pre-wrap">${safeLine}</td>
+                </tr>
+              `;
+            }).join('')}
+          </table>
+        </div>
+      `;
+    });
+  }
+
+  const html = `<html><head><meta charset="utf-8">${pdfBaseCss_()}</head><body>${body}</body></html>`;
+  const filename = safeFileName_(`Historique_Interventions_${year && String(year).trim() ? String(year).trim() : 'ALL'}.pdf`);
+  return exportPdfFromHtml_(html, filename);
 }
 
