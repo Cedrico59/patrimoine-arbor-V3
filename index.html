@@ -278,7 +278,7 @@ body.agent-mode button {
   color: #9db0ff;
 }
 
-  </style>
+  .admin-only{display:none;}body.admin .admin-only{display:inline-flex;}</style>
 </head>
 
 <body>
@@ -337,7 +337,8 @@ body.agent-mode button {
 
       <div class="btns" style="margin-top:12px;">
         <button class="secondary" onclick="openTreeInNewTab()">Ouvrir la fiche</button>
-        <button class="secondary" id="exportTreePdfBtn">📄 Exporter fiche (PDF)</button>
+        <button class="secondary" onclick="exportArbrePDF((document.getElementById('p-id')?.textContent||'').trim())">📑 Export PDF arbre (admin)</button>
+        <button class="secondary" onclick="exportAnnuelPDF()">📆 Export PDF annuel (admin)</button>
       </div>
     </div>
 
@@ -360,7 +361,6 @@ body.agent-mode button {
       <div class="search" style="margin-top:10px;">
         <input id="q" type="text" placeholder="Rechercher (espèce, adresse, tag…)" />
         <button class="secondary" id="exportBtn">Exporter</button>
-        <button class="secondary" id="exportHistoryPdfBtn">📄 PDF interventions</button>
       </div>
 
       <p class="hint" style="margin:10px 0 0;">
@@ -568,6 +568,9 @@ body.agent-mode button {
     <p id="loginError"></p>
   </div>
 </div>
+
+
+
 
 
 </body>
