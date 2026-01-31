@@ -1835,6 +1835,7 @@ window.exportArbrePDF = async function (treeId) {
       return;
     }
 
+
     const id = String(treeId || "").trim();
     if (!id) {
       alert("ID arbre manquant");
@@ -1845,7 +1846,7 @@ window.exportArbrePDF = async function (treeId) {
       action: "exportArbrePDF",
       id
     });
-
+console.log("📥 Téléchargement PDF lancé", res.fileUrl);
     if (!res || !res.ok || !res.fileUrl) {
       alert("Erreur export PDF arbre");
       console.error(res);
