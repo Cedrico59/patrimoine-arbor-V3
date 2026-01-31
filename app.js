@@ -90,6 +90,8 @@ let isAuthenticated = !!authToken;
 function isAdmin() {
   return (localStorage.getItem("userRole") || "").toLowerCase() === "admin";
 }
+window.isAdmin = isAdmin; // ✅ AJOUT CRITIQUE
+
 
 function isPastilleTree(t){
   // ici la "pastille" correspond à un état défini
