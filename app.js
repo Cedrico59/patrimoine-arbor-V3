@@ -1880,39 +1880,80 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+// =========================
+// 📄 EXPORT PDF (ADMIN UNIQUEMENT)
+// =========================
+window.exportArbrePDF = async function (treeId) {
+  try {
+    if (!isAdmin()) {
+      alert("⛔ Export réservé aux administrateurs");
+      return;
+    }
 
-/* =========================
-   EXPORT PDF – ADMIN ONLY
-========================= */
-function exportArbrePDF(treeId) {
-  if (!isAdmin()) {
-    alert("⛔ Réservé aux administrateurs");
-    return;
-  }
-  postToGAS({ action: "exportArbrePDF", id: treeId })
-    .then(res => {
-      if (!res || !res.ok) {
-        alert("Erreur export PDF arbre");
-        return;
-      }
-      window.open(res.fileUrl, "_blank");
+    const id = String(treeId || "").trim();
+    if (!id) {
+      alert("ID arbre manquant");
+      return;
+    }
+
+    const res = await postToGAS({
+      action: "exportArbrePDF",
+      id
     });
-}
 
-function exportAnnuelPDF() {
-  if (!isAdmin()) {
-    alert("⛔ Réservé aux administrateurs");
-    return;
+    if (!res || !res.ok || !res.fileUrl) {
+      alert("Erreur export PDF arbre");
+      console.error(res);
+      return;
+    }
+
+    // ✅ téléchargement forcé
+    const a = document.createElement("a");
+    a.href = res.fileUrl;
+    a.download = "";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF arbre");
   }
-  const year = prompt("Année à exporter (ex : 2025)");
-  if (!year) return;
+};
 
-  postToGAS({ action: "exportAnnuelPDF", year })
-    .then(res => {
-      if (!res || !res.ok) {
-        alert("Erreur export PDF annuel");
-        return;
-      }
-      alert("PDF annuel généré");
+window.exportAnnuelPDF = async function () {
+  try {
+    if (!isAdmin()) {
+      alert("⛔ Export réservé aux administrateurs");
+      return;
+    }
+
+    const year = prompt("Année à exporter (ex : 2025)");
+    if (!year) return;
+
+    const res = await postToGAS({
+      action: "exportAnnuelPDF",
+      year: String(year).trim()
     });
-}
+
+    if (!res || !res.ok || !res.fileUrl) {
+      alert("Erreur export PDF annuel");
+      console.error(res);
+      return;
+    }
+
+    // ✅ téléchargement forcé
+    const a = document.createElement("a");
+    a.href = res.fileUrl;
+    a.download = "";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF annuel");
+  }
+};
