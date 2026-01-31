@@ -1739,60 +1739,6 @@ document.getElementById("loginBtn")?.addEventListener("click", async () => {
 document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
 
-
-
-
-
-
-  // =========================
-  // 📄 EXPORT PDF (ADMIN UNIQUEMENT) — action humaine
-  // =========================
-  window.exportArbrePDF = async function(treeId) {
-    try {
-      if (!isAdmin()) {
-        alert("⛔ Export réservé aux administrateurs");
-        return;
-      }
-      const id = String(treeId || "").trim();
-      if (!id) {
-        alert("ID arbre manquant");
-        return;
-      }
-      const res = await postToGAS({ action: "exportArbrePDF", id });
-      if (!res || !res.ok || !res.fileUrl) {
-        alert("Erreur export PDF arbre");
-        return;
-      }
-      window.open(res.fileUrl, "_blank");
-    } catch (e) {
-      console.error(e);
-      alert("Erreur export PDF arbre");
-    }
-  };
-
-  window.exportAnnuelPDF = async function() {
-    try {
-      if (!isAdmin()) {
-        alert("⛔ Export réservé aux administrateurs");
-        return;
-      }
-      const year = prompt("Année à exporter (ex : 2025)");
-      if (!year) return;
-
-      const res = await postToGAS({ action: "exportAnnuelPDF", year: String(year).trim() });
-      if (!res || !res.ok) {
-        alert("Erreur export PDF annuel");
-        return;
-      }
-      if (res.fileUrl) window.open(res.fileUrl, "_blank");
-      else alert("PDF annuel généré et archivé (Drive)");
-    } catch (e) {
-      console.error(e);
-      alert("Erreur export PDF annuel");
-    }
-  };
-
-
 })();
 
     
@@ -1879,9 +1825,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btn) btn.addEventListener("click", handleValiderIntervention_);
 });
 
-
 // =========================
-// 📄 EXPORT PDF (ADMIN UNIQUEMENT)
+// 📄 EXPORT PDF (ADMIN UNIQUEMENT) — TÉLÉCHARGEMENT LOCAL
 // =========================
 window.exportArbrePDF = async function (treeId) {
   try {
@@ -1907,11 +1852,11 @@ window.exportArbrePDF = async function (treeId) {
       return;
     }
 
-    // ✅ téléchargement forcé
+    // ✅ téléchargement forcé → dossier Téléchargements
     const a = document.createElement("a");
     a.href = res.fileUrl;
     a.download = "";
-    a.target = "_blank";
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1943,11 +1888,11 @@ window.exportAnnuelPDF = async function () {
       return;
     }
 
-    // ✅ téléchargement forcé
+    // ✅ téléchargement forcé → dossier Téléchargements
     const a = document.createElement("a");
     a.href = res.fileUrl;
     a.download = "";
-    a.target = "_blank";
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
