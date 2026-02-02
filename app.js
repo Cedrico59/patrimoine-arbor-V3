@@ -1840,10 +1840,7 @@ window.exportArbrePDF = async function(id) {
   }
 
   try {
-    const res = await postToGAS({
-      action: "exportArbrePDF",
-      id: id
-    });
+    const res = await window.postToGAS({ action: "exportArbrePDF", id });
 
     if (!res.ok || !res.url) {
       alert("Erreur lors de la génération du PDF");
@@ -1864,10 +1861,7 @@ window.exportAnnuelPDF = async function() {
   const year = new Date().getFullYear();
 
   try {
-    const res = await postToGAS({
-      action: "exportAnnuelPDF",
-      year
-    });
+    const res = await window.postToGAS({ action: "exportAnnuelPDF", year });
 
     if (!res.ok || !res.url) {
       alert("Erreur export annuel");
