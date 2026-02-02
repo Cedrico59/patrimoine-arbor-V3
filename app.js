@@ -1833,43 +1833,36 @@ document.addEventListener("DOMContentLoaded", () => {
 // =========================
 // 📄 EXPORT PDF (ADMIN UNIQUEMENT) — TÉLÉCHARGEMENT LOCAL
 // =========================
-window.exportArbrePDF = async function(id) {
-  if (!id) {
-    alert("ID d’arbre manquant");
-    return;
-  }
+window.exportArbrePDF = async function (id) {
+  if (!id) return alert("ID d’arbre manquant");
 
   try {
     const res = await window.postToGAS({ action: "exportArbrePDF", id });
 
-    if (!res.ok || !res.url) {
-      alert("Erreur lors de la génération du PDF");
+    if (!res || !res.ok || !res.fileUrl) {
       console.error(res);
-      return;
+      return alert("Erreur lors de la génération du PDF");
     }
 
-    // 🔽 téléchargement
-    window.open(res.url, "_blank");
-
+    window.open(res.fileUrl, "_blank");
   } catch (e) {
     console.error(e);
     alert("Erreur export PDF");
   }
 };
 
-window.exportAnnuelPDF = async function() {
+window.exportAnnuelPDF = async function () {
   const year = new Date().getFullYear();
 
   try {
     const res = await window.postToGAS({ action: "exportAnnuelPDF", year });
 
-    if (!res.ok || !res.url) {
-      alert("Erreur export annuel");
-      return;
+    if (!res || !res.ok || !res.fileUrl) {
+      console.error(res);
+      return alert("Erreur export annuel");
     }
 
-    window.open(res.url, "_blank");
-
+    window.open(res.fileUrl, "_blank");
   } catch (e) {
     console.error(e);
     alert("Erreur export PDF annuel");
