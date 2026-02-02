@@ -226,6 +226,9 @@ async function postToGAS(payload) {
   }
 }
 
+// 🔥 LIGNE MANQUANTE
+window.postToGAS = postToGAS;
+
 
 
   
