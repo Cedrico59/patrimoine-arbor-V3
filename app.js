@@ -1830,75 +1830,48 @@ document.addEventListener("DOMContentLoaded", () => {
 // =========================
 // 📄 EXPORT PDF (ADMIN UNIQUEMENT) — TÉLÉCHARGEMENT LOCAL
 // =========================
-window.exportArbrePDF = async function (treeId) {
+window.exportArbrePDF = async function(id) {
+  if (!id) {
+    alert("ID d’arbre manquant");
+    return;
+  }
+
   try {
-    if (!isAdmin()) {
-      alert("⛔ Export réservé aux administrateurs");
-      return;
-    }
-
-
-    const id = String(treeId || "").trim();
-    if (!id) {
-      alert("ID arbre manquant");
-      return;
-    }
-
     const res = await postToGAS({
       action: "exportArbrePDF",
-      id
+      id: id
     });
-console.log("📥 Téléchargement PDF lancé", res.fileUrl);
-    if (!res || !res.ok || !res.fileUrl) {
-      alert("Erreur export PDF arbre");
+
+    if (!res.ok || !res.url) {
+      alert("Erreur lors de la génération du PDF");
       console.error(res);
       return;
     }
 
-    // ✅ téléchargement forcé → dossier Téléchargements
-    const a = document.createElement("a");
-    a.href = res.fileUrl;
-    a.download = "";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // 🔽 téléchargement
+    window.open(res.url, "_blank");
 
   } catch (e) {
     console.error(e);
-    alert("Erreur export PDF arbre");
+    alert("Erreur export PDF");
   }
 };
 
-window.exportAnnuelPDF = async function () {
+window.exportAnnuelPDF = async function() {
+  const year = new Date().getFullYear();
+
   try {
-    if (!isAdmin()) {
-      alert("⛔ Export réservé aux administrateurs");
-      return;
-    }
-
-    const year = prompt("Année à exporter (ex : 2025)");
-    if (!year) return;
-
     const res = await postToGAS({
       action: "exportAnnuelPDF",
-      year: String(year).trim()
+      year
     });
 
-    if (!res || !res.ok || !res.fileUrl) {
-      alert("Erreur export PDF annuel");
-      console.error(res);
+    if (!res.ok || !res.url) {
+      alert("Erreur export annuel");
       return;
     }
 
-    // ✅ téléchargement forcé → dossier Téléchargements
-    const a = document.createElement("a");
-    a.href = res.fileUrl;
-    a.download = "";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    window.open(res.url, "_blank");
 
   } catch (e) {
     console.error(e);
