@@ -129,6 +129,7 @@ function applyTravauxLock() {
     "numeroBDC",
     "numeroFacture",
     "comment",
+    "historyInterventions",
   ];
 
   const locked = !isAdmin();
