@@ -1652,7 +1652,7 @@ async function startApp() {
   }
 
   console.log("✅ App chargée (auth OK).");
-
+} // ✅ FIN startApp()
 
 
 
