@@ -752,7 +752,13 @@ async function readFilesAsDataUrls(files) {
   const lng = parseFloat(lngEl().value);
 
   for (const f of files) {
-    const stampedDataUrl = await stampPhotoWithMeta(f, lat, lng);
+    
+const stampedDataUrl = await stampPhotoWithMeta(
+  f,
+  lat,
+  lng,
+  treeId // ✅ ID transmis
+);
 
     out.push({
       id: crypto.randomUUID(), // ✅ CRITIQUE
