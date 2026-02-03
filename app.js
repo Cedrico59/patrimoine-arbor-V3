@@ -4,17 +4,30 @@ function wireValidateIntervention() {
   const btn = document.getElementById("btnValiderIntervention");
   if (!btn) return;
 
+  // 🔒 verrouillage visuel pour secteur
+  if (!isAdmin()) {
+    btn.disabled = true;
+    btn.style.opacity = "0.4";
+    btn.style.cursor = "not-allowed";
+    btn.title = "Action réservée à l’administrateur";
+    return; // ⛔ STOP ici
+  }
+
+  // 👑 ADMIN SEUL
   btn.onclick = () => {
     const txt = historyInterventionsEl().value.trim();
     if (!txt) {
       alert("Aucune intervention à valider.");
       return;
     }
+
     const now = new Date().toLocaleString("fr-FR");
     historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
+
     alert("Intervention validée. Pense à enregistrer.");
   };
 }
+
 
 /* FIX: prevent ReferenceError for stray `it` */
 var it = null;
