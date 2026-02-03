@@ -711,7 +711,7 @@ async function stampPhotoWithMeta(file, lat, lng, treeId) {
 
       // 🔹 paramètres texte
       const padding = Math.max(16, canvas.width * 0.015);
-      const fontSize = Math.max(14, canvas.width * 0.018);
+      const fontSize = Math.max(11, canvas.width * 0.014);
 
       ctx.font = `${fontSize}px Arial`;
       ctx.fillStyle = "rgba(255,255,255,0.9)";
@@ -726,7 +726,8 @@ async function stampPhotoWithMeta(file, lat, lng, treeId) {
       ctx.shadowBlur = 4;
 
       const startY = canvas.height - padding;
-      const lineHeight = fontSize + 6;
+      const lineHeight = fontSize + 4;
+
 
       ctx.fillText(coordStr, padding, startY);
       ctx.fillText(dateStr, padding, startY - lineHeight);
