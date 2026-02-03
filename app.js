@@ -716,7 +716,7 @@ async function stampPhotoWithMeta(file, lat, lng) {
       ctx.fillRect(0, canvas.height - bandHeight, canvas.width, bandHeight);
 
       ctx.fillStyle = "#fff";
-      ctx.font = `${Math.max(22, canvas.width / 40)}px Arial`;
+      ctx.font = `${Math.max(22, canvas.width / 15)}px Arial`;
 
       const dateStr = new Date().toLocaleString("fr-FR");
       const coordStr = `Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}`;
