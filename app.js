@@ -710,13 +710,14 @@ async function stampPhotoWithMeta(file, lat, lng) {
 
       // bandeau bas
       const padding = 20;
-      const bandHeight = 40;
+      const bandHeight = 40; // au lieu de 80
+      ctx.font = "14px Arial";
 
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.fillRect(0, canvas.height - bandHeight, canvas.width, bandHeight);
 
       ctx.fillStyle = "#fff";
-      ctx.font = `${Math.max(22, canvas.width / 15)}px Arial`;
+     
 
       const dateStr = new Date().toLocaleString("fr-FR");
       const coordStr = `Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}`;
