@@ -689,6 +689,9 @@ del.onclick = async () => {
 // =========================
 // 🏷️ TAMPON DATE + GPS SUR PHOTO
 // =========================
+// =========================
+// 🏷️ TAMPON DATE + GPS (discret, bas gauche)
+// =========================
 async function stampPhotoWithMeta(file, lat, lng) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -705,27 +708,29 @@ async function stampPhotoWithMeta(file, lat, lng) {
       canvas.width = img.width;
       canvas.height = img.height;
 
-      // image originale
+      // 📸 image originale
       ctx.drawImage(img, 0, 0);
 
-      // bandeau bas
-      const padding = 20;
-      const bandHeight = 40; // au lieu de 80
-      ctx.font = "14px Arial";
+      // 📝 texte discret
+      const padding = Math.max(16, canvas.width * 0.015);
+      const fontSize = Math.max(14, canvas.width * 0.02);
 
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, canvas.height - bandHeight, canvas.width, bandHeight);
+      ctx.font = `${fontSize}px Arial`;
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.textBaseline = "bottom";
 
-      ctx.fillStyle = "#fff";
-     
+      const dateStr = new Date().toLocaleDateString("fr-FR");
+      const coordStr = `Lat ${lat.toFixed(5)} | Lng ${lng.toFixed(5)}`;
 
-      const dateStr = new Date().toLocaleString("fr-FR");
-      const coordStr = `Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}`;
+      // ombre légère pour lisibilité
+      ctx.shadowColor = "rgba(0,0,0,0.6)";
+      ctx.shadowBlur = 4;
 
-      ctx.fillText(dateStr, padding, canvas.height - 40);
-      ctx.fillText(coordStr, padding, canvas.height - 10);
+      // 📍 bas gauche
+      ctx.fillText(dateStr, padding, canvas.height - padding - fontSize - 2);
+      ctx.fillText(coordStr, padding, canvas.height - padding);
 
-      resolve(canvas.toDataURL("image/jpeg", 0.6));
+      resolve(canvas.toDataURL("image/jpeg", 0.75));
     };
 
     img.onerror = reject;
@@ -734,6 +739,7 @@ async function stampPhotoWithMeta(file, lat, lng) {
     reader.readAsDataURL(file);
   });
 }
+
 
 async function readFilesAsDataUrls(files) {
   const out = [];
