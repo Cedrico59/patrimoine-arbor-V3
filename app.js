@@ -39,6 +39,11 @@ var it = null;
   // CONFIG
   // =========================
   const API_URL = "https://script.google.com/macros/s/AKfycbxrTMFxQDSOHvBrgwXWHwoGhefpHEtcHLdaaq3YdtJLU5QqvBsjs08hrByRVwAYXg94Iw/exec";
+  function getTreeIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("id");
+}
+
   const STORAGE_KEY = "marcq_arbres_v1";
   const MARCQ_CENTER = [50.676, 3.086];
 
