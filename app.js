@@ -686,13 +686,11 @@ del.onclick = async () => {
       g.appendChild(wrap);
     });
   }
+
 // =========================
-// 🏷️ TAMPON DATE + GPS SUR PHOTO
+// 🏷️ TAMPON DISCRET : ID + DATE + GPS SUR PHOTO (bas gauche)
 // =========================
-// =========================
-// 🏷️ TAMPON DATE + GPS (discret, bas gauche)
-// =========================
-async function stampPhotoWithMeta(file, lat, lng) {
+async function stampPhotoWithMeta(file, lat, lng, treeId) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -708,29 +706,33 @@ async function stampPhotoWithMeta(file, lat, lng) {
       canvas.width = img.width;
       canvas.height = img.height;
 
-      // 📸 image originale
+      // image originale
       ctx.drawImage(img, 0, 0);
 
-      // 📝 texte discret
+      // 🔹 paramètres texte
       const padding = Math.max(16, canvas.width * 0.015);
-      const fontSize = Math.max(14, canvas.width * 0.02);
+      const fontSize = Math.max(14, canvas.width * 0.018);
 
       ctx.font = `${fontSize}px Arial`;
-      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
       ctx.textBaseline = "bottom";
 
-      const dateStr = new Date().toLocaleDateString("fr-FR");
-      const coordStr = `Lat ${lat.toFixed(5)} | Lng ${lng.toFixed(5)}`;
+      const dateStr = new Date().toLocaleString("fr-FR");
+      const coordStr = `Lat: ${lat.toFixed(6)} | Lng: ${lng.toFixed(6)}`;
+      const idStr = `ID : ${treeId}`;
 
       // ombre légère pour lisibilité
       ctx.shadowColor = "rgba(0,0,0,0.6)";
       ctx.shadowBlur = 4;
 
-      // 📍 bas gauche
-      ctx.fillText(dateStr, padding, canvas.height - padding - fontSize - 2);
-      ctx.fillText(coordStr, padding, canvas.height - padding);
+      const startY = canvas.height - padding;
+      const lineHeight = fontSize + 6;
 
-      resolve(canvas.toDataURL("image/jpeg", 0.75));
+      ctx.fillText(coordStr, padding, startY);
+      ctx.fillText(dateStr, padding, startY - lineHeight);
+      ctx.fillText(idStr, padding, startY - lineHeight * 2);
+
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
     };
 
     img.onerror = reject;
@@ -739,6 +741,7 @@ async function stampPhotoWithMeta(file, lat, lng) {
     reader.readAsDataURL(file);
   });
 }
+
 
 
 async function readFilesAsDataUrls(files) {
