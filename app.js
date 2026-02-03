@@ -1890,10 +1890,18 @@ window.exportArbrePDF = async function (id) {
 };
 
 window.exportAnnuelPDF = async function () {
-  const year = new Date().getFullYear();
+  const year = document.getElementById("yearSelect")?.value;
+
+  if (!year) {
+    alert("Veuillez choisir une année");
+    return;
+  }
 
   try {
-    const res = await window.postToGAS({ action: "exportAnnuelPDF", year });
+    const res = await window.postToGAS({
+      action: "exportAnnuelPDF",
+      year: year
+    });
 
     if (!res || !res.ok || !res.fileUrl) {
       console.error(res);
@@ -1906,3 +1914,4 @@ window.exportAnnuelPDF = async function () {
     alert("Erreur export PDF annuel");
   }
 };
+
