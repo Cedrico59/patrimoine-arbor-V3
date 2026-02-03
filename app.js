@@ -710,7 +710,7 @@ async function stampPhotoWithMeta(file, lat, lng) {
 
       // bandeau bas
       const padding = 20;
-      const bandHeight = 80;
+      const bandHeight = 40;
 
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.fillRect(0, canvas.height - bandHeight, canvas.width, bandHeight);
