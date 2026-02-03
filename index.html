@@ -336,13 +336,15 @@ body.agent-mode button {
       </div>
 
 <label for="yearSelect" class="hint">Année à exporter</label>
-<select id="yearSelect">
-  <option value="">— Choisir une année —</option> 
-  <option value="2022">2022</option>
-  <option value="2023">2023</option>
-  <option value="2024">2024</option>
-  <option value="2025">2025</option>
-</select>
+<input
+  type="number"
+  id="yearSelect"
+  placeholder="Ex : 2024"
+  min="2000"
+  max="2100"
+  style="width:120px;"
+>
+
 
     
       <div class="btns" style="margin-top:12px;">
