@@ -335,6 +335,12 @@ body.agent-mode button {
         <small id="p-comment"></small>
       </div>
 
+<label for="yearSelect" class="hint">Année à exporter</label>
+<select id="yearSelect">
+  <option value="">— Choisir une année —</option>
+</select>
+
+    
       <div class="btns" style="margin-top:12px;">
         <button class="secondary" onclick="openTreeInNewTab()">Ouvrir la fiche</button>
         <button class="secondary" onclick="exportArbrePDF((document.getElementById('p-id')?.textContent||'').trim())">📑 Export PDF arbre (admin)</button>
