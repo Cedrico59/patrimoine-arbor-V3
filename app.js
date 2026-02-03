@@ -1627,13 +1627,32 @@ async function startApp() {
   await loadQuartiersGeoJSON();
   await loadCityContourAndLock();
 
-  renderMarkers();
+   renderMarkers();
   renderList();
   renderSecteurCount();
-  setSelected(null);
+
+  // 🔗 OUVERTURE VIA QR CODE (?id=XXXX)
+  const treeIdFromQR = getTreeIdFromURL();
+  if (treeIdFromQR) {
+    const t = trees.find(x => String(x.id) === String(treeIdFromQR));
+    if (t) {
+      setSelected(t.id);
+
+      // 🎯 centrer la carte
+      if (map && t.lat && t.lng) {
+        map.setView([t.lat, t.lng], 18);
+      }
+
+      highlightListSelection();
+    } else {
+      alert("⚠️ Arbre introuvable (QR invalide)");
+    }
+  } else {
+    setSelected(null);
+  }
 
   console.log("✅ App chargée (auth OK).");
-}
+
 
 
 
