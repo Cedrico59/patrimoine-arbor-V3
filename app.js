@@ -1274,27 +1274,16 @@ galleryInput.addEventListener("change", async () => {
 galleryInput.addEventListener("change", async () => {
   if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-  const newPhotos = await readFilesAsDataUrls(galleryInput.files);
+  const photos = await readFilesAsDataUrls(galleryInput.files);
+  pendingPhotos.push(...photos);
 
-  // ✅ ajout temporaire
-  pendingPhotos.push(...newPhotos);
-
-  // reset input (important mobile)
-  galleryInput.value = "";
+  galleryInput.value = ""; // reset
 
   updatePhotoStatus();
+  renderGallery(pendingPhotos);
+  renderPhotoCarousel(pendingPhotos);
 
-  // 🔁 photos à afficher (arbre existant + temporaires)
-  const t = selectedId ? getTreeById(selectedId) : null;
-  const photosToShow = [
-    ...(t?.photos || []),
-    ...pendingPhotos
-  ];
-
-  renderGallery(photosToShow);
-  renderPhotoCarousel(photosToShow);
 });
-
 
 
 function updatePhotoStatus() {
