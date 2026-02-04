@@ -1247,6 +1247,8 @@ const photoStatus = document.getElementById("photoStatus");
 // 📸 stockage temporaire des photos (IMPORTANT mobile)
 
 
+
+
 // 📸 Caméra (mobile compatible)
 cameraInput.addEventListener("change", async () => {
   if (!cameraInput.files || !cameraInput.files[0]) return;
