@@ -1,4 +1,5 @@
 
+
 /* ===== VALIDER INTERVENTION ===== */
 function wireValidateIntervention() {
   const btn = document.getElementById("btnValiderIntervention");
@@ -1274,16 +1275,27 @@ galleryInput.addEventListener("change", async () => {
 galleryInput.addEventListener("change", async () => {
   if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-  const photos = await readFilesAsDataUrls(galleryInput.files);
-  pendingPhotos.push(...photos);
+  const newPhotos = await readFilesAsDataUrls(galleryInput.files);
 
-  galleryInput.value = ""; // reset
+  // ✅ ajout temporaire
+  pendingPhotos.push(...newPhotos);
+
+  // reset input (important mobile)
+  galleryInput.value = "";
 
   updatePhotoStatus();
-  renderGallery(pendingPhotos);
-  renderPhotoCarousel(pendingPhotos);
 
+  // 🔁 photos à afficher (arbre existant + temporaires)
+  const t = selectedId ? getTreeById(selectedId) : null;
+  const photosToShow = [
+    ...(t?.photos || []),
+    ...pendingPhotos
+  ];
+
+  renderGallery(photosToShow);
+  renderPhotoCarousel(photosToShow);
 });
+
 
 
 function updatePhotoStatus() {
@@ -1933,5 +1945,4 @@ window.exportAnnuelPDF = async function () {
     alert("Erreur export PDF annuel");
   }
 };
-
 
