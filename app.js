@@ -281,6 +281,14 @@ window.postToGAS = postToGAS;
     return trees.find((t) => t.id === id);
   }
 
+  function getAllPhotos() {
+  const t = selectedId ? getTreeById(selectedId) : null;
+  return [
+    ...(t?.photos || []),
+    ...pendingPhotos
+  ];
+}
+
   function loadTrees() {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -643,21 +651,16 @@ del.onclick = async () => {
   const photo = photos[idx];
 
   // 🕓 PHOTO TEMPORAIRE (pas encore enregistrée)
-  if (!photo.driveId) {
-    pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
+if (!photo.driveId) {
+  pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
 
-    updatePhotoStatus();
+  updatePhotoStatus();
 
-    const t = selectedId ? getTreeById(selectedId) : null;
-    const allPhotos = [
-      ...(t?.photos || []),
-      ...pendingPhotos
-    ];
+  renderGallery(getAllPhotos());
+  renderPhotoCarousel(getAllPhotos());
+  return;
+}
 
-    renderGallery(allPhotos);
-    renderPhotoCarousel(allPhotos);
-    return;
-  }
 
   // 📦 PHOTO DÉJÀ ENREGISTRÉE (Drive)
   if (!selectedId) return;
@@ -1247,43 +1250,24 @@ const photoStatus = document.getElementById("photoStatus");
 // 📸 stockage temporaire des photos (IMPORTANT mobile)
 
 
-// 📸 Caméra (mobile compatible)
-galleryInput.addEventListener("change", async () => {
-  if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-  const photos = await readFilesAsDataUrls(galleryInput.files);
-  pendingPhotos.push(...photos);
-
-  galleryInput.value = ""; // reset
-
-  updatePhotoStatus();
-
-  const t = selectedId ? getTreeById(selectedId) : null;
-  const allPhotos = [
-    ...(t?.photos || []),
-    ...pendingPhotos
-  ];
-
-  renderGallery(allPhotos);
-  renderPhotoCarousel(allPhotos);
-});
 
 
 
 // 🖼️ Galerie
-galleryInput.addEventListener("change", async () => {
+ggalleryInput.addEventListener("change", async () => {
   if (!galleryInput.files || galleryInput.files.length === 0) return;
 
   const photos = await readFilesAsDataUrls(galleryInput.files);
   pendingPhotos.push(...photos);
 
-  galleryInput.value = ""; // reset
+  galleryInput.value = "";
 
   updatePhotoStatus();
-  renderGallery(pendingPhotos);
-  renderPhotoCarousel(pendingPhotos);
-
+  renderGallery(getAllPhotos());
+  renderPhotoCarousel(getAllPhotos());
 });
+
 
 
 function updatePhotoStatus() {
