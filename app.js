@@ -71,7 +71,7 @@ var it = null;
   let lastDeletedTree = null;
   let pendingPhotos = [];
 let authToken = localStorage.getItem("authToken");
-
+let uiWired = false;
 // ------------------------------
 // 🔐 Déconnexion
 // ------------------------------
@@ -1236,37 +1236,35 @@ map.on("tap", handleMapSelect);
 
   }
 
-  function wireUI() {
-    qEl().addEventListener("input", () => renderList());
-const takePhotoBtn = document.getElementById("takePhotoBtn");
-const pickGalleryBtn = document.getElementById("pickGalleryBtn");
+ function wireUI() {
+  if (uiWired) return; // ✅ garde-fou
+  uiWired = true;
 
-const cameraInput = document.getElementById("cameraInput");
-const galleryInput = document.getElementById("galleryInput");
-const photoStatus = document.getElementById("photoStatus");
-// 📸 stockage temporaire des photos (IMPORTANT mobile)
+  qEl().addEventListener("input", () => renderList());
 
+  galleryInput.addEventListener("change", async () => {
+    if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-// 📸 Caméra (mobile compatible)
-galleryInput.addEventListener("change", async () => {
-  if (!galleryInput.files || galleryInput.files.length === 0) return;
+    const photos = await readFilesAsDataUrls(galleryInput.files);
+    pendingPhotos.push(...photos);
 
-  const photos = await readFilesAsDataUrls(galleryInput.files);
-  pendingPhotos.push(...photos);
+    galleryInput.value = "";
 
-  galleryInput.value = ""; // reset input
+    updatePhotoStatus();
 
-  updatePhotoStatus();
+    const t = selectedId ? getTreeById(selectedId) : null;
+    const allPhotos = [
+      ...(t?.photos || []),
+      ...pendingPhotos
+    ];
 
-  const t = selectedId ? getTreeById(selectedId) : null;
-  const allPhotos = [
-    ...(t?.photos || []),
-    ...pendingPhotos
-  ];
+    renderGallery(allPhotos);
+    renderPhotoCarousel(allPhotos);
+  });
 
-  renderGallery(allPhotos);
-  renderPhotoCarousel(allPhotos);
-});
+  // le reste du wireUI...
+}
+
 
 
 
