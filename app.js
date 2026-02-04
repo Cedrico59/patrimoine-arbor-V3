@@ -1254,7 +1254,7 @@ galleryInput.addEventListener("change", async () => {
   const photos = await readFilesAsDataUrls(galleryInput.files);
   pendingPhotos.push(...photos);
 
-  galleryInput.value = ""; // reset
+  galleryInput.value = ""; // reset input
 
   updatePhotoStatus();
 
@@ -1270,20 +1270,6 @@ galleryInput.addEventListener("change", async () => {
 
 
 
-// 🖼️ Galerie
-galleryInput.addEventListener("change", async () => {
-  if (!galleryInput.files || galleryInput.files.length === 0) return;
-
-  const photos = await readFilesAsDataUrls(galleryInput.files);
-  pendingPhotos.push(...photos);
-
-  galleryInput.value = ""; // reset
-
-  updatePhotoStatus();
-  renderGallery(pendingPhotos);
-  renderPhotoCarousel(pendingPhotos);
-
-});
 
 
 function updatePhotoStatus() {
