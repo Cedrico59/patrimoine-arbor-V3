@@ -71,7 +71,7 @@ var it = null;
   let lastDeletedTree = null;
   let pendingPhotos = [];
 let authToken = localStorage.getItem("authToken");
-let uiWired = false;
+
 // ------------------------------
 // 🔐 Déconnexion
 // ------------------------------
@@ -955,7 +955,7 @@ const stampedDataUrl = await stampPhotoWithMeta(
 
   function setSelected(id) {
     
-
+pendingPhotos = [];
 
     selectedId = id;
     const t = id ? getTreeById(id) : null;
@@ -1237,30 +1237,36 @@ map.on("tap", handleMapSelect);
   }
 
   function wireUI() {
-  if (uiWired) return; // ✅ garde-fou
-  uiWired = true;
+    qEl().addEventListener("input", () => renderList());
+const takePhotoBtn = document.getElementById("takePhotoBtn");
+const pickGalleryBtn = document.getElementById("pickGalleryBtn");
 
-  qEl().addEventListener("input", () => renderList());
+const cameraInput = document.getElementById("cameraInput");
+const galleryInput = document.getElementById("galleryInput");
+const photoStatus = document.getElementById("photoStatus");
+// 📸 stockage temporaire des photos (IMPORTANT mobile)
 
-  galleryInput.addEventListener("change", async () => {
-    if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-    const photos = await readFilesAsDataUrls(galleryInput.files);
-    pendingPhotos.push(...photos);
+// 📸 Caméra (mobile compatible)
+galleryInput.addEventListener("change", async () => {
+  if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-    galleryInput.value = "";
+  const photos = await readFilesAsDataUrls(galleryInput.files);
+  pendingPhotos.push(...photos);
 
-    updatePhotoStatus();
+  galleryInput.value = ""; // reset input
 
-    const t = selectedId ? getTreeById(selectedId) : null;
-    const allPhotos = [
-      ...(t?.photos || []),
-      ...pendingPhotos
-    ];
+  updatePhotoStatus();
 
-    renderGallery(allPhotos);
-    renderPhotoCarousel(allPhotos);
-  });
+  const t = selectedId ? getTreeById(selectedId) : null;
+  const allPhotos = [
+    ...(t?.photos || []),
+    ...pendingPhotos
+  ];
+
+  renderGallery(allPhotos);
+  renderPhotoCarousel(allPhotos);
+});
 
 
 
