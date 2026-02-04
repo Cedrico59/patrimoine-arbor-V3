@@ -1614,6 +1614,8 @@ applyAgentMode();
 // =========================
 // START
 // =========================
+  console.log("📎 binding galleryInput change");
+
 document.addEventListener("DOMContentLoaded", async () => {
   // 🔄 Relire le token au démarrage (persistant)
   authToken = localStorage.getItem("authToken");
