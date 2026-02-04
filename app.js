@@ -955,7 +955,7 @@ const stampedDataUrl = await stampPhotoWithMeta(
 
   function setSelected(id) {
     
-pendingPhotos = [];
+
 
     selectedId = id;
     const t = id ? getTreeById(id) : null;
