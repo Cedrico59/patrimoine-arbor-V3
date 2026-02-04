@@ -1248,25 +1248,26 @@ const photoStatus = document.getElementById("photoStatus");
 
 
 // 📸 Caméra (mobile compatible)
-cameraInput.addEventListener("change", async () => {
-  if (!cameraInput.files || !cameraInput.files[0]) return;
+galleryInput.addEventListener("change", async () => {
+  if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-  const photos = await readFilesAsDataUrls(cameraInput.files);
+  const photos = await readFilesAsDataUrls(galleryInput.files);
   pendingPhotos.push(...photos);
 
-  cameraInput.value = "";
+  galleryInput.value = ""; // reset
 
   updatePhotoStatus();
+
   const t = selectedId ? getTreeById(selectedId) : null;
-const allPhotos = [
-  ...(t?.photos || []),
-  ...pendingPhotos
-];
+  const allPhotos = [
+    ...(t?.photos || []),
+    ...pendingPhotos
+  ];
 
-renderGallery(allPhotos);
-renderPhotoCarousel(allPhotos);
-
+  renderGallery(allPhotos);
+  renderPhotoCarousel(allPhotos);
 });
+
 
 
 // 🖼️ Galerie
