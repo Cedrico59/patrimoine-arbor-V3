@@ -1236,7 +1236,7 @@ map.on("tap", handleMapSelect);
 
   }
 
- function wireUI() {
+  function wireUI() {
   if (uiWired) return; // ✅ garde-fou
   uiWired = true;
 
@@ -1261,10 +1261,6 @@ map.on("tap", handleMapSelect);
     renderGallery(allPhotos);
     renderPhotoCarousel(allPhotos);
   });
-
-  // le reste du wireUI...
-}
-
 
 
 
