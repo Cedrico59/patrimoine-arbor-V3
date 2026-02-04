@@ -1254,8 +1254,7 @@ galleryInput.addEventListener("change", async () => {
   const photos = await readFilesAsDataUrls(galleryInput.files);
   pendingPhotos.push(...photos);
 
-  cameraInput.value = "";
-
+  galleryInput.value = ""; // reset
 
   updatePhotoStatus();
 
