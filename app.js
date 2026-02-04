@@ -1,5 +1,4 @@
 
-
 /* ===== VALIDER INTERVENTION ===== */
 function wireValidateIntervention() {
   const btn = document.getElementById("btnValiderIntervention");
