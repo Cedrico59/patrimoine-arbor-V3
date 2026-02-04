@@ -757,8 +757,9 @@ const stampedDataUrl = await stampPhotoWithMeta(
   f,
   lat,
   lng,
-  treeId // ✅ ID transmis
+  treeIdEl().value || ""   // ✅ ICI LA BONNE SOURCE
 );
+
 
     out.push({
       id: crypto.randomUUID(), // ✅ CRITIQUE
