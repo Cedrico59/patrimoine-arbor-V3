@@ -1262,13 +1262,10 @@ cameraInput.addEventListener("change", async () => {
 
   updatePhotoStatus();
   const t = selectedId ? getTreeById(selectedId) : null;
-const allPhotos = [
-  ...(t?.photos || []),
-  ...pendingPhotos
-];
+  
+renderGallery(pendingPhotos);
+renderPhotoCarousel(pendingPhotos);
 
-renderGallery(allPhotos);
-renderPhotoCarousel(allPhotos);
 
 });
 
