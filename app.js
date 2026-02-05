@@ -305,10 +305,11 @@ async function syncToSheets(treeObj) {
   try {
     const payload = { ...treeObj };
 
-    // ✅ n'envoyer que les nouvelles photos (base64)
-    payload.photos = (treeObj.photos || []).filter(
-      p => p.dataUrl && p.dataUrl.startsWith("data:")
-    );
+   // ✅ n'envoyer que les photos TEMPORAIRES (caméra / galerie locale)
+payload.photos = pendingPhotos.filter(
+  p => p.dataUrl && p.dataUrl.startsWith("data:")
+);
+
 
   await postToGAS({ payload });
 await loadTreesFromSheets();
