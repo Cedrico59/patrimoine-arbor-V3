@@ -643,21 +643,18 @@ del.onclick = async () => {
   const photo = photos[idx];
 
   // 🕓 PHOTO TEMPORAIRE (pas encore enregistrée)
-  if (!photo.driveId) {
-    pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
+ if (!photo.driveId) {
+  // 🗑️ suppression photo temporaire (caméra OU galerie)
+  pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
 
-    updatePhotoStatus();
+  updatePhotoStatus();
 
-    const t = selectedId ? getTreeById(selectedId) : null;
-    const allPhotos = [
-      ...(t?.photos || []),
-      ...pendingPhotos
-    ];
+  renderGallery(pendingPhotos);
+  renderPhotoCarousel(pendingPhotos);
 
-    renderGallery(allPhotos);
-    renderPhotoCarousel(allPhotos);
-    return;
-  }
+  return;
+}
+
 
   // 📦 PHOTO DÉJÀ ENREGISTRÉE (Drive)
   if (!selectedId) return;
