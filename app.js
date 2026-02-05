@@ -305,11 +305,10 @@ async function syncToSheets(treeObj) {
   try {
     const payload = { ...treeObj };
 
-   // ✅ n'envoyer que les photos TEMPORAIRES (caméra / galerie locale)
-payload.photos = pendingPhotos.filter(
-  p => p.dataUrl && p.dataUrl.startsWith("data:")
-);
-
+    // ✅ n'envoyer que les nouvelles photos (base64)
+    payload.photos = (treeObj.photos || []).filter(
+      p => p.dataUrl && p.dataUrl.startsWith("data:")
+    );
 
   await postToGAS({ payload });
 await loadTreesFromSheets();
@@ -644,31 +643,21 @@ del.onclick = async () => {
   const photo = photos[idx];
 
   // 🕓 PHOTO TEMPORAIRE (pas encore enregistrée)
- // 🕓 PHOTO TEMPORAIRE (pas encore enregistrée / pas de driveId)
-if (!photo.driveId) {
-  // 1) supprime des photos en attente
-  pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
+  if (!photo.driveId) {
+    pendingPhotos = pendingPhotos.filter(p => p.id !== photo.id);
 
-  // 2) sécurité : si elle a déjà été fusionnée par erreur dans l’arbre sélectionné, on l’enlève aussi
-  const t = selectedId ? getTreeById(selectedId) : null;
-  if (t && Array.isArray(t.photos)) {
-    t.photos = t.photos.filter(p => p.driveId || p.id !== photo.id);
+    updatePhotoStatus();
+
+    const t = selectedId ? getTreeById(selectedId) : null;
+    const allPhotos = [
+      ...(t?.photos || []),
+      ...pendingPhotos
+    ];
+
+    renderGallery(allPhotos);
+    renderPhotoCarousel(allPhotos);
+    return;
   }
-
-  updatePhotoStatus();
-
-  // 3) re-render avec la vue “réelle”
-  const allPhotos = [
-    ...((selectedId ? getTreeById(selectedId)?.photos : null) || []),
-    ...pendingPhotos
-  ];
-
-  renderGallery(allPhotos);
-  renderPhotoCarousel(allPhotos);
-  return;
-}
-
-
 
   // 📦 PHOTO DÉJÀ ENREGISTRÉE (Drive)
   if (!selectedId) return;
