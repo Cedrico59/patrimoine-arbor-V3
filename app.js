@@ -1236,6 +1236,8 @@ map.on("tap", handleMapSelect);
 
   }
 
+  console.log("📎 binding galleryInput change");
+
   function wireUI() {
     qEl().addEventListener("input", () => renderList());
 const takePhotoBtn = document.getElementById("takePhotoBtn");
