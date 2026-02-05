@@ -71,7 +71,6 @@ var it = null;
   let lastDeletedTree = null;
   let pendingPhotos = [];
 let authToken = localStorage.getItem("authToken");
-let UI_ALREADY_WIRED = false;
 
 // ------------------------------
 // 🔐 Déconnexion
@@ -1240,13 +1239,6 @@ map.on("tap", handleMapSelect);
   console.log("📎 binding galleryInput change");
 
   function wireUI() {
-  if (UI_ALREADY_WIRED) {
-    console.warn("⚠️ wireUI déjà exécutée");
-    return;
-  }
-  UI_ALREADY_WIRED = true;
-
-  console.log("📎 wireUI bind");
     qEl().addEventListener("input", () => renderList());
 const takePhotoBtn = document.getElementById("takePhotoBtn");
 const pickGalleryBtn = document.getElementById("pickGalleryBtn");
@@ -1260,8 +1252,7 @@ const photoStatus = document.getElementById("photoStatus");
 
 
 // 📸 Caméra (mobile compatible)
-cameraInput.onchange = async () => {
-
+cameraInput.addEventListener("change", async () => {
   if (!cameraInput.files || !cameraInput.files[0]) return;
 
   const photos = await readFilesAsDataUrls(cameraInput.files);
@@ -1283,8 +1274,7 @@ renderPhotoCarousel(allPhotos);
 
 
 // 🖼️ Galerie
-galleryInput.onchange = async () => {
-
+galleryInput.addEventListener("change", async () => {
   if (!galleryInput.files || galleryInput.files.length === 0) return;
 
   const photos = await readFilesAsDataUrls(galleryInput.files);
