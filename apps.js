@@ -1,16 +1,46 @@
+/*******************************
+ * CONFIG
+ *******************************/
 const SPREADSHEET_ID = "1Q-HaZs_nMcJRiH0lNu-NpYbdlvWFNWSK8dQPGl9vJNU";
-function myFunction() {}
+
 const SHEET_TRAVAUX = "tableau_Elagages/Abattages";
+const SHEET_PATRIMOINE = "Patrimoine_arboré";
+const SHEET_HISTORIQUE = "Historique";
+
+const DRIVE_FOLDER_ID = "1bC7CsCGBeQNp5ADelZ0SIXGjo12uhiUS";
+const MAIRIE_LOGO_URL = "https://raw.githubusercontent.com/Cedrico59/patrimoine-arbor-V3/main/logo-marcq.png";
+
+
+
+
+
+// =========================
+// 📄 CONFIG PDF / QR
+// =========================
+const BASE_FICHE_URL = "https://cedrico59.github.io/patrimoine-arbor-V3"; // fiche en ligne
+const PDF_MARGIN_INCH = 0.5;
+
+// tailles police standard
+const FONT_TITLE = 22;
+const FONT_SUBTITLE = 19;
+const FONT_SECTION = 18;
+const FONT_BODY = 14;
+const FONT_META = 14;
+const FONT_LEGAL = 14;
+
+// (garde le stub, utile si ton projet l'appelle)
+function myFunction() {}
+
+/*******************************
+ * TEST
+ *******************************/
 function TEST_DRIVE_LINKED() {
   DriveApp.createFile("test_linked_drive.txt", "OK");
 }
 
 /* =========================
-   📜 HISTORIQUE MODIFICATIONS (AJOUT)
+   📜 HISTORIQUE MODIFICATIONS
 ========================= */
-const SHEET_HISTORIQUE = "Historique";
-
-// crée l'onglet Historique s'il n'existe pas
 function getOrCreateHistorySheet_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   let sh = ss.getSheetByName(SHEET_HISTORIQUE);
@@ -29,16 +59,15 @@ function getOrCreateHistorySheet_() {
   return sh;
 }
 
-// écrit une ligne d'historique
 function logHistory_(meta, action, treeId, detailsObj) {
   try {
     const hist = getOrCreateHistorySheet_();
     hist.appendRow([
       new Date(),
-      meta?.login || "",
-      meta?.role || "",
-      meta?.secteur || "",
-      action,
+      (meta && meta.login) || "",
+      (meta && meta.role) || "",
+      (meta && meta.secteur) || "",
+      action || "",
       treeId || "",
       JSON.stringify(detailsObj || {})
     ]);
@@ -80,9 +109,12 @@ function getTreeRowAsObject_(sheet, treeId) {
 
 // diff simple avant/après
 function diffObjects_(before, after) {
-  if (!before) return [{ field: "__NEW__", from: null, to: after?.id || "" }];
+  if (!before) return [{ field: "__NEW__", from: null, to: (after && after.id) || "" }];
 
-  const keys = ["lat","lng","species","height","dbh","secteur","address","tags","historiqueInterventions","comment","photos","etat"];
+  const keys = [
+    "lat","lng","species","height","dbh","secteur","address",
+    "tags","historiqueInterventions","comment","photos","etat"
+  ];
   const changes = [];
 
   keys.forEach(k => {
@@ -97,20 +129,11 @@ function diffObjects_(before, after) {
 }
 
 /* =========================
-   🔐 AUTH (AJOUT)
+   🔐 AUTH MULTI-COMPTES
 ========================= */
-// =========================
-// 🔐 AUTH MULTI-COMPTES
-// =========================
-// ✅ Admin : accès total
-// ✅ Secteur : accès limité (filtrage côté front)
-// ⚠️ Ici on ne change que la connexion / token
-
 const USERS = {
   admin: { password: "marcq2026", role: "admin", secteur: "" },
 
-  // 🔧 Remplace les mots de passe ci-dessous
-  // Chaque secteur a son propre login + mot de passe
   "Hautes Loges - Briqueterie": { password: "HLB2026", role: "secteur", secteur: "Hautes Loges - Briqueterie" },
   "Bourg": { password: "BOURG2026", role: "secteur", secteur: "Bourg" },
   "Buisson - Delcencerie": { password: "BD2026", role: "secteur", secteur: "Buisson - Delcencerie" },
@@ -121,6 +144,7 @@ const USERS = {
   "Hippodrome": { password: "HIP2026", role: "secteur", secteur: "Hippodrome" },
   "Ferme aux Oies": { password: "FAO2026", role: "secteur", secteur: "Ferme aux Oies" }
 };
+
 const TOKEN_STORE = PropertiesService.getScriptProperties();
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 12; // 12h
 
@@ -139,7 +163,7 @@ function getTokenMeta_(token) {
   if (!token) return null;
   const raw = TOKEN_STORE.getProperty("meta_" + token);
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  try { return JSON.parse(raw); } catch (e) { return null; }
 }
 
 function isValidToken_(token) {
@@ -161,26 +185,26 @@ function authFail_() {
 }
 
 /* =========================
-   GET – ROUTER (CORRIGÉ: un seul doGet)
+   GET – ROUTER
 ========================= */
 function doGet(e) {
-  // 🔐 AUTH
-  const token = e?.parameter?.token;
+  const token = e && e.parameter && e.parameter.token;
   if (!isValidToken_(token)) return authFail_();
 
-  // 📜 HISTORIQUE : GET?action=history&id=XXX
-  if (e?.parameter?.action === "history") {
+  if (e && e.parameter && e.parameter.action === "history") {
     return handleHistoryGet_(e);
   }
 
-  // 🌳 ARBRES + 🔧 TRAVAUX
   return handleTreesAndTravauxGet_();
 }
 
-// 📜 HISTORIQUE – GET
+/* =========================
+   📜 HISTORIQUE – GET
+   GET?action=history&id=XXX&limit=50
+========================= */
 function handleHistoryGet_(e) {
-  const treeId = String(e?.parameter?.id || "").trim();
-  const limit = Number(e?.parameter?.limit || 50);
+  const treeId = String((e && e.parameter && e.parameter.id) || "").trim();
+  const limit = Number((e && e.parameter && e.parameter.limit) || 50);
 
   if (!treeId) return jsonResponse({ ok: false, error: "id manquant" });
 
@@ -212,11 +236,15 @@ function handleHistoryGet_(e) {
   return jsonResponse({ ok: true, history: out });
 }
 
-// 🌳 ARBRES + 🔧 TRAVAUX – GET
+/* =========================
+   🌳 ARBRES + 🔧 TRAVAUX – GET
+========================= */
 function handleTreesAndTravauxGet_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName("Patrimoine_arboré");
+  const sheet = ss.getSheetByName(SHEET_PATRIMOINE);
   const sheetTravaux = ss.getSheetByName(SHEET_TRAVAUX);
+
+  if (!sheet) return jsonResponse({ ok: false, error: "SHEET_PATRIMOINE_INTROUVABLE" });
 
   /* ===== LECTURE TRAVAUX ===== */
   const travauxMap = {};
@@ -265,10 +293,10 @@ function handleTreesAndTravauxGet_() {
     const lat = Number(row[2]);
     const lng = Number(row[3]);
     const id = row[1];
-    const travaux = travauxMap[id] || {};
+    const travaux = travauxMap[String(id).trim()] || {};
 
     return {
-      createdAt: row[0]?.getTime?.() || null,
+      createdAt: row[0] && row[0].getTime ? row[0].getTime() : null,
       id,
       lat,
       lng,
@@ -277,19 +305,18 @@ function handleTreesAndTravauxGet_() {
       dbh: row[6] !== "" ? Number(row[6]) : null,
       secteur: row[7],
       address: row[8],
-      tags: row[9] ? String(row[9]).split(",") : [],
+      tags: row[9] ? String(row[9]).split(",").map(s => s.trim()).filter(Boolean) : [],
       historiqueInterventions: row[10] || "",
       comment: row[11],
       photos: (() => {
         if (!row[12]) return [];
-        try { return JSON.parse(row[12]); }
-        catch { return []; }
+        try { return JSON.parse(row[12]); } catch (e) { return []; }
       })(),
       etat: String(row[13] || "").trim(),
-      secteurTravaux: (travaux.secteur || ""),
       updatedAt: row[14] ? Number(row[14]) : null,
 
       // ✅ TRAVAUX RENVOYÉS À L’APP
+      secteurTravaux: travaux.secteur || "",
       dateDemande: travaux.dateDemande || "",
       natureTravaux: travaux.natureTravaux || "",
       dateDemandeDevis: travaux.dateDemandeDevis || "",
@@ -308,10 +335,8 @@ function handleTreesAndTravauxGet_() {
 }
 
 /* =========================
-   DRIVE
+   DRIVE / PHOTOS
 ========================= */
-const DRIVE_FOLDER_ID = "1bC7CsCGBeQNp5ADelZ0SIXGjo12uhiUS";
-
 // 📁 1 dossier par arbre
 function getOrCreateTreeFolder(treeId) {
   const root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
@@ -342,16 +367,42 @@ function uploadPhoto(base64, filename, treeId) {
   };
 }
 
+function deletePhotoFromDrive(driveId) {
+  try {
+    if (!driveId) return false;
+    DriveApp.getFileById(driveId).setTrashed(true);
+    return true;
+  } catch (e) {
+    Logger.log("Erreur suppression photo Drive: " + e);
+    return false;
+  }
+}
+
+function deleteTreeFolder(treeId) {
+  const root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const folders = root.getFoldersByName(treeId);
+  while (folders.hasNext()) {
+    folders.next().setTrashed(true);
+  }
+}
+
+function assertSheetAlive() {
+  const file = DriveApp.getFileById(SPREADSHEET_ID);
+  if (file.isTrashed()) {
+    throw new Error("❌ Le Spreadsheet est dans la corbeille !");
+  }
+}
+
 /* =========================
-   POST – LOGIN / CREATE / UPDATE / DELETE
+   POST – LOGIN / CREATE / UPDATE / DELETE / EXPORT / VALIDATE
 ========================= */
 function doPost(e) {
   try {
-    // 🔐 LOGIN (action=login & password=...)
-    const actionParam = e?.parameter?.action;
+    // 🔐 LOGIN (action=login & login=... & password=...)
+    const actionParam = e && e.parameter && e.parameter.action;
     if (actionParam === "login") {
-      const login = String(e?.parameter?.login || "").trim();
-      const pwd = String(e?.parameter?.password || "");
+      const login = String((e && e.parameter && e.parameter.login) || "").trim();
+      const pwd = String((e && e.parameter && e.parameter.password) || "");
 
       const user = USERS[login];
       if (!user || pwd !== user.password) return authFail_();
@@ -359,29 +410,22 @@ function doPost(e) {
       const token = createToken_();
       setTokenMeta_(token, { role: user.role, secteur: user.secteur || "", login });
 
-      return ContentService
-        .createTextOutput(JSON.stringify({ ok: true, token, role: user.role, secteur: user.secteur || "", login }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return jsonResponse({ ok: true, token, role: user.role, secteur: user.secteur || "", login });
     }
 
     // 🔐 AUTH obligatoire pour tout le reste
-    const token = e?.parameter?.token;
+    const token = e && e.parameter && e.parameter.token;
     if (!isValidToken_(token)) return authFail_();
 
     // ✅ META pour historique
     const meta = getTokenMeta_(token); // {role, secteur, login}
 
+    // ✅ parse payload
     let data = {};
-
-    // ✅ Accepte :
-    // - payload JSON (payload=...)
-    // - paramètres directs (action=...&id=...)
-    // - JSON brut dans le body
     if (e && e.parameter && Object.keys(e.parameter).length) {
       if (e.parameter.payload) {
         data = JSON.parse(e.parameter.payload);
       } else {
-        // paramètres directs
         data = { ...e.parameter };
       }
     } else if (e && e.postData && e.postData.contents) {
@@ -390,19 +434,31 @@ function doPost(e) {
       throw new Error("Aucun payload reçu");
     }
 
-    // ✅ si on reçoit { payload: {...} }
     if (data && data.payload) data = data.payload;
 
-    // (optionnel) on ne garde pas token/password dans data pour éviter effets de bord
+    // retirer champs sensibles pour éviter effets de bord
     if (data && typeof data === "object") {
       delete data.token;
       delete data.password;
     }
 
-    
+    // =========================
+    // 📄 EXPORT PDF (ADMIN UNIQUEMENT)
+    // =========================
+    if (data.action === "exportArbrePDF" && data.id) {
+      const out = exportHistoriqueArbreToPDF_(String(data.id).trim(), meta);
+      return jsonResponse(out);
+    }
+    if (data.action === "exportAnnuelPDF" && data.year) {
+      const out = exportHistoriqueAnnuelToPDF_(Number(data.year), meta);
+      return jsonResponse(out);
+    }
+
     /* ===== VALIDATION INTERVENTION ===== */
     if (data.action === "validateIntervention" && data.id && data.intervention) {
-      const sheetVI = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
+      const sheetVI = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_PATRIMOINE);
+      if (!sheetVI) return ok({ status: "SHEET_NOT_FOUND" });
+
       const lastVI = sheetVI.getLastRow();
       if (lastVI > 1) {
         const rowsVI = sheetVI.getRange(2, 1, lastVI - 1, sheetVI.getLastColumn()).getValues();
@@ -411,15 +467,12 @@ function doPost(e) {
             const rowIndex = i + 2;
             const existing = String(rowsVI[i][10] || "").trim(); // col 11 Historique
             const sep = existing ? "\n" : "";
-            const value = existing + sep + data.intervention;
+            const value = existing + sep + String(data.intervention);
             sheetVI.getRange(rowIndex, 11).setValue(value);
             sheetVI.getRange(rowIndex, 15).setValue(Date.now());
             SpreadsheetApp.flush();
 
-            logHistory_(meta, "VALIDATE_INTERVENTION", data.id, {
-              added: data.intervention
-            });
-
+            logHistory_(meta, "VALIDATE_INTERVENTION", data.id, { added: data.intervention });
             return ok({ status: "INTERVENTION_ADDED" });
           }
         }
@@ -427,75 +480,40 @@ function doPost(e) {
       return ok({ status: "NOT_FOUND" });
     }
 
-    /* =========================
-       📄 EXPORT PDF
-       - exportHistoryPdf : historique interventions regroupé par année
-       - exportTreePdf    : fiche arbre + historique complet
-    ========================= */
-    if (data.action === "exportHistoryPdf") {
-      const year = String(data.year || "").trim();
-      const pdf = exportHistoryPdf_(year);
-      // ✅ HISTORIQUE (audit)
-      logHistory_(meta, "EXPORT_HISTORY_PDF", year || "ALL", { year: year || "ALL" });
-      return jsonResponse({ ok: true, url: pdf.url, fileId: pdf.fileId, filename: pdf.filename });
-    }
-
-    if (data.action === "exportTreePdf" && data.id) {
-      const treeId = String(data.id).trim();
-      const pdf = exportTreePdf_(treeId);
-      // ✅ HISTORIQUE (audit)
-      logHistory_(meta, "EXPORT_TREE_PDF", treeId, { treeId });
-      return jsonResponse({ ok: true, url: pdf.url, fileId: pdf.fileId, filename: pdf.filename });
-    }
-
-// 🔒 SÉCURITÉ SECTEUR :
-    // un compte secteur ne peut enregistrer que dans son secteur
-    if (meta && meta.role === "secteur") {
+    // 🔒 SÉCURITÉ SECTEUR : force le secteur du compte
+    if (meta && String(meta.role || "").toLowerCase() === "secteur") {
       data.secteur = meta.secteur || data.secteur || "";
     }
 
-    const sheet = SpreadsheetApp
-      .openById(SPREADSHEET_ID)
-      .getSheetByName("Patrimoine_arboré");
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_PATRIMOINE);
+    if (!sheet) throw new Error("SHEET_PATRIMOINE_INTROUVABLE");
 
     const lastRow = sheet.getLastRow();
 
     /* ===== SUPPRESSION PHOTO ===== */
     if (data.action === "deletePhoto" && data.photoDriveId && data.treeId) {
-
-      // ✅ HISTORIQUE
-      logHistory_(meta, "DELETE_PHOTO", data.treeId, {
-        photoDriveId: data.photoDriveId
-      });
+      logHistory_(meta, "DELETE_PHOTO", data.treeId, { photoDriveId: data.photoDriveId });
 
       const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-
       for (let i = 0; i < rows.length; i++) {
         const sheetTreeId = String(rows[i][1]).trim();
         if (sheetTreeId === String(data.treeId).trim()) {
-
           let photos = [];
-          try {
-            photos = rows[i][12] ? JSON.parse(rows[i][12]) : [];
-          } catch (err) {
-            photos = [];
-          }
+          try { photos = rows[i][12] ? JSON.parse(rows[i][12]) : []; } catch (err) { photos = []; }
 
-          // Drive
           deletePhotoFromDrive(String(data.photoDriveId).trim());
 
-          // Sheets
           const newPhotos = photos.filter(p =>
             String(p.driveId || "").trim() !== String(data.photoDriveId).trim()
           );
 
-          sheet.getRange(i + 2, 13).setValue(JSON.stringify(newPhotos));
+          sheet.getRange(i + 2, 13).setValue(JSON.stringify(newPhotos)); // col 13 photos
           SpreadsheetApp.flush();
 
           return ok({ status: "PHOTO_DELETED", remaining: newPhotos.length });
         }
       }
-
       return ok({ status: "NOT_FOUND" });
     }
 
@@ -503,25 +521,19 @@ function doPost(e) {
     if (data.action === "delete" && data.id) {
       if (lastRow < 2) return ok({ status: "NOT_FOUND" });
 
-      // ✅ HISTORIQUE
       const beforeObjDelete = getTreeRowAsObject_(sheet, data.id);
-      logHistory_(meta, "DELETE", data.id, {
-        deletedRow: beforeObjDelete || null
-      });
+      logHistory_(meta, "DELETE", data.id, { deletedRow: beforeObjDelete || null });
 
       const rows = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
-
       for (let i = 0; i < rows.length; i++) {
         if (String(rows[i][1]).trim() === String(data.id).trim()) {
           deleteTreeFolder(String(data.id).trim());
           sheet.deleteRow(i + 2);
-          // ✅ tri après suppression
           sortArbresSheet_(sheet);
           SpreadsheetApp.flush();
           return ok({ status: "DELETED" });
         }
       }
-
       return ok({ status: "NOT_FOUND" });
     }
 
@@ -531,11 +543,11 @@ function doPost(e) {
     // ✅ conversions si on est passé par e.parameter (tout est string)
     if (typeof data.tags === "string") {
       try { data.tags = JSON.parse(data.tags); }
-      catch { data.tags = String(data.tags).split(",").map(s => s.trim()).filter(Boolean); }
+      catch (err) { data.tags = String(data.tags).split(",").map(s => s.trim()).filter(Boolean); }
     }
     if (typeof data.photos === "string") {
       try { data.photos = JSON.parse(data.photos); }
-      catch { data.photos = []; }
+      catch (err) { data.photos = []; }
     }
 
     // ✅ HISTORIQUE : état avant update/create
@@ -546,8 +558,8 @@ function doPost(e) {
     if (lastRow > 1) {
       const rows = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
       for (let i = 0; i < rows.length; i++) {
-        if (String(rows[i][1]).trim() === String(data.id).trim() && rows[i][11]) {
-          existingPhotos = JSON.parse(rows[i][12]);
+        if (String(rows[i][1]).trim() === String(data.id).trim()) {
+          try { existingPhotos = rows[i][12] ? JSON.parse(rows[i][12]) : []; } catch (err) { existingPhotos = []; }
           break;
         }
       }
@@ -569,128 +581,57 @@ function doPost(e) {
 
     /* ===== DONNÉES ===== */
     const rowData = [
-      new Date(),
-      data.id || "",
-      data.lat || "",
-      data.lng || "",
-      data.species || "",
-      data.height || "",
-      data.dbh || "",
-      data.secteur || "",
-      data.address || "",
-      (data.tags || []).join(","),
-      data.historiqueInterventions || "",
-      data.comment || "",
-      JSON.stringify(allPhotos),
-      data.etat || "",
-      data.updatedAt || Date.now()
+      new Date(),                          // A createdAt
+      data.id || "",                       // B id
+      data.lat || "",                      // C lat
+      data.lng || "",                      // D lng
+      data.species || "",                  // E species
+      data.height || "",                   // F height
+      data.dbh || "",                      // G dbh
+      data.secteur || "",                  // H secteur
+      data.address || "",                  // I address
+      (data.tags || []).join(","),         // J tags
+      data.historiqueInterventions || "",  // K historique
+      data.comment || "",                  // L comment
+      JSON.stringify(allPhotos),           // M photos
+      data.etat || "",                     // N etat
+      data.updatedAt || Date.now()         // O updatedAt
     ];
 
     let isUpdate = false;
 
     /* ===== UPDATE ===== */
     if (lastRow > 1) {
-      const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
+      const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // col B
       for (let i = 0; i < ids.length; i++) {
         if (String(ids[i][0]).trim() === String(data.id).trim()) {
-          sheet.getRange(i + 2, 1, 1, rowData.length)
-            .setValues([rowData]);
+          sheet.getRange(i + 2, 1, 1, rowData.length).setValues([rowData]);
 
           // ✅ tri après mise à jour
           sortArbresSheet_(sheet);
 
-          colorRowByEtat(sheet, i + 2, data.etat);
+          // ✅ recolor fiable par ID (après tri)
           recolorOneArbreById_(sheet, data.id);
+
           isUpdate = true;
           break;
         }
       }
     }
 
-
-
-    /* ===== TRAVAUX (Élagages / Abattages) ===== */
-    const etatArbre = String(data.etat || "").trim();
-    const ETATS_TRAVAUX = [
-      "Dangereux (A abattre)",
-      "A surveiller",
-      "A élaguer (URGENT)",
-      "A élaguer (Moyen)",
-      "A élaguer (Faible)"
-    ];
-    const doitAllerTravaux = ETATS_TRAVAUX.includes(etatArbre);
-
-    if (doitAllerTravaux) {
-      const sheetTravaux = SpreadsheetApp
-        .openById(SPREADSHEET_ID)
-        .getSheetByName(SHEET_TRAVAUX);
-
-      const travauxRow = [
-        data.id || "",                    // A - Id
-        etatArbre || "",                  // B - État de l’arbre
-        data.secteur || "",               // C - Secteur
-        data.dateDemande || "",           // D - Date de demande
-        data.natureTravaux || "",         // E - Nature des travaux
-        data.address || "",               // F - Adresse des travaux
-        data.species || "",               // G - Espèce
-        data.dateDemandeDevis || "",      // H - Date de demande de devis
-        data.devisNumero || "",           // I - Devis n°
-        data.montantDevis || "",          // J - Montant du devis (€)
-        data.dateExecution || "",         // K - Date d’exécution des travaux
-        data.remarquesTravaux || "",      // L - Remarques
-        data.numeroBDC || "",             // M - N° bdc
-        data.numeroFacture || ""          // N - N° Facture
-      ];
-
-      const lastTravaux = sheetTravaux.getLastRow();
-      let foundTravaux = false;
-
-      if (lastTravaux > 1) {
-        const idsTravaux = sheetTravaux.getRange(2, 1, lastTravaux - 1, 1).getValues();
-        for (let i = 0; i < idsTravaux.length; i++) {
-          if (String(idsTravaux[i][0]).trim() === String(data.id).trim()) {
-            const rowIndex = i + 2;
-
-            sheetTravaux
-              .getRange(rowIndex, 1, 1, travauxRow.length)
-              .setValues([travauxRow]);
-
-            colorEtatTravaux(sheetTravaux, rowIndex, etatArbre);
-            // ✅ tri après mise à jour travaux
-            sortTravauxSheet_(sheetTravaux);
-            // ✅ recolor fiable par ID (après tri)
-            recolorOneTravauxById_(sheetTravaux, data.id);
-            foundTravaux = true;
-            break;
-          }
-        }
-      }
-
-      if (!foundTravaux) {
-        sheetTravaux.appendRow(travauxRow);
-        // ✅ tri après création travaux
-        sortTravauxSheet_(sheetTravaux);
-        // ✅ recolor fiable par ID (après tri)
-        recolorOneTravauxById_(sheetTravaux, data.id);
-        const newRow = sheetTravaux.getLastRow();
-        colorEtatTravaux(sheetTravaux, newRow, etatArbre);
-        recolorOneTravauxById_(sheetTravaux, data.id);
-      }
-    }
-
     /* ===== CREATE ===== */
     if (!isUpdate) {
       sheet.appendRow(rowData);
-      // ✅ tri après création
       sortArbresSheet_(sheet);
-      const newRow = sheet.getLastRow();
-      colorRowByEtat(sheet, newRow, data.etat);
       recolorOneArbreById_(sheet, data.id);
     }
 
+    /* ===== TRAVAUX (sync si état déclencheur) ===== */
+    syncTravaux_(data);
+
     SpreadsheetApp.flush();
 
-    // ✅ HISTORIQUE : état après + diff + log CREATE/UPDATE
+    // ✅ HISTORIQUE : état après + diff
     const afterObj = {
       id: data.id,
       lat: data.lat || "",
@@ -708,105 +649,98 @@ function doPost(e) {
     };
 
     const changes = diffObjects_(beforeObj, afterObj);
+    logHistory_(meta, isUpdate ? "UPDATE" : "CREATE", data.id, { changes });
 
-    logHistory_(meta, isUpdate ? "UPDATE" : "CREATE", data.id, {
-      changes
-    });
-
-    return ok({ status: "CREATED", photos: allPhotos });
+    return ok({ status: isUpdate ? "UPDATED" : "CREATED", photos: allPhotos });
 
   } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return jsonResponse({ ok: false, error: String(err) });
   }
 }
 
 /* =========================
-   UTIL
+   SYNC TRAVAUX
+========================= */
+function syncTravaux_(data) {
+  const etatArbre = String(data.etat || "").trim();
+  const ETATS_TRAVAUX = [
+    "Dangereux (A abattre)",
+    "A surveiller",
+    "A élaguer (URGENT)",
+    "A élaguer (Moyen)",
+    "A élaguer (Faible)"
+  ];
+  const doitAllerTravaux = ETATS_TRAVAUX.includes(etatArbre);
+  if (!doitAllerTravaux) return;
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetTravaux = ss.getSheetByName(SHEET_TRAVAUX);
+  if (!sheetTravaux) return;
+
+  const travauxRow = [
+    data.id || "",                    // A - Id
+    etatArbre || "",                  // B - État de l’arbre
+    data.secteur || "",               // C - Secteur
+    data.dateDemande || "",           // D - Date de demande
+    data.natureTravaux || "",         // E - Nature des travaux
+    data.address || "",               // F - Adresse des travaux
+    data.species || "",               // G - Espèce
+    data.dateDemandeDevis || "",      // H - Date de demande de devis
+    data.devisNumero || "",           // I - Devis n°
+    data.montantDevis || "",          // J - Montant du devis (€)
+    data.dateExecution || "",         // K - Date d’exécution des travaux
+    data.remarquesTravaux || "",      // L - Remarques
+    data.numeroBDC || "",             // M - N° bdc
+    data.numeroFacture || ""          // N - N° Facture
+  ];
+
+  const lastTravaux = sheetTravaux.getLastRow();
+  let foundTravaux = false;
+
+  if (lastTravaux > 1) {
+    const idsTravaux = sheetTravaux.getRange(2, 1, lastTravaux - 1, 1).getValues();
+    for (let i = 0; i < idsTravaux.length; i++) {
+      if (String(idsTravaux[i][0]).trim() === String(data.id).trim()) {
+        const rowIndex = i + 2;
+        sheetTravaux.getRange(rowIndex, 1, 1, travauxRow.length).setValues([travauxRow]);
+
+        colorEtatTravaux(sheetTravaux, rowIndex, etatArbre);
+
+        // ✅ tri désactivé (comme avant)
+        sortTravauxSheet_(sheetTravaux);
+
+        // ✅ recolor fiable par ID
+        recolorOneTravauxById_(sheetTravaux, data.id);
+
+        foundTravaux = true;
+        break;
+      }
+    }
+  }
+
+  if (!foundTravaux) {
+    sheetTravaux.appendRow(travauxRow);
+
+    sortTravauxSheet_(sheetTravaux);
+
+    const newRow = sheetTravaux.getLastRow();
+    colorEtatTravaux(sheetTravaux, newRow, etatArbre);
+    recolorOneTravauxById_(sheetTravaux, data.id);
+  }
+}
+
+/* =========================
+   UTIL JSON
 ========================= */
 function ok(payload) {
-  const output = ContentService.createTextOutput(
-    JSON.stringify({ ok: true, result: payload })
-  );
-  output.setMimeType(ContentService.MimeType.JSON);
-  return output;
+  return jsonResponse({ ok: true, result: payload });
 }
 
-function deletePhotoFromDrive(driveId) {
-  try {
-    if (!driveId) return false;
-    DriveApp.getFileById(driveId).setTrashed(true);
-    return true;
-  } catch (e) {
-    Logger.log("Erreur suppression photo Drive: " + e);
-    return false;
-  }
-}
-
-function deleteTreeFolder(treeId) {
-  const root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  const folders = root.getFoldersByName(treeId);
-
-  while (folders.hasNext()) {
-    const folder = folders.next();
-    folder.setTrashed(true);
-  }
-}
-
-function assertSheetAlive() {
-  const file = DriveApp.getFileById(SPREADSHEET_ID);
-  if (file.isTrashed()) {
-    throw new Error("❌ Le Spreadsheet est dans la corbeille !");
-  }
-}
-
-function colorRowByEtat(sheet, rowIndex, etat) {
-  let color = null;
-
-  if (etat === "Dangereux (A abattre)") color = "#f28b82"; // rouge clair
-  if (etat === "A surveiller")  color = "#fbbc04"; // orange clair
-  if (etat === "A élaguer (URGENT)")  color = "#FFFF00"; // jaune
-  if (etat === "A élaguer (Moyen)")  color = "#00FFFF"; // beuc lair
-  if (etat === "A élaguer (Faible)")  color = "#ccff90"; // vert clair
-
-  const range = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn());
-
-  if (color) {
-    range.setBackground(color);
-  } else {
-    range.setBackground(null); // reset
-  }
-}
-
-function colorEtatTravaux(sheet, rowIndex, etat) {
-  let color = null;
-
-  if (etat === "Dangereux (A abattre)") color = "#f28b82"; // rouge clair
-  if (etat === "A surveiller")  color = "#fbbc04"; // orange clair
-  if (etat === "A élaguer (URGENT)")  color = "#FFFF00"; // jaune
-  if (etat === "A élaguer (Moyen)")  color = "#00FFFF"; // beuc lair
-  if (etat === "A élaguer (Faible)")  color = "#ccff90"; // vert clair
-
-  // 👉 UNIQUEMENT la colonne État (B)
-  const cell = sheet.getRange(rowIndex, 2);
-
-  if (color) {
-    cell.setBackground(color);
-    cell.setFontWeight("bold");
-  } else {
-    cell.setBackground(null);
-    cell.setFontWeight("normal");
-  }
-}
-
-// ✅ jsonResponse CORRIGÉ (ContentService ne supporte pas setHeader)
 function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
-
 
 function formatDateForInput(d) {
   if (!d) return "";
@@ -816,14 +750,13 @@ function formatDateForInput(d) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// =========================
-// 📌 TRI AUTOMATIQUE FEUILLE ARBRES
+/* =========================
+   TRI & COULEURS
+========================= */
 // Secteur (col 8) -> Adresse (col 9) -> Espèce (col 5)
-// =========================
 function sortArbresSheet_(sheet) {
   try {
     const lastRow = sheet.getLastRow();
@@ -834,28 +767,55 @@ function sortArbresSheet_(sheet) {
       { column: 9, ascending: true }, // adresse (rue)
       { column: 5, ascending: true }  // espèce
     ]);
-
   } catch (e) {
     Logger.log("Tri arbres erreur: " + e);
   }
 }
 
-// =========================
-// 📌 TRI AUTOMATIQUE FEUILLE TRAVAUX
-// =========================
+// tri travaux désactivé pour éviter propagation style
 function sortTravauxSheet_(sheetTravaux) {
-  // ✅ Désactivé pour éviter les effets de style (couleur qui se propage)
   return;
 }
 
-// =========================
-// 🎨 RECOLOR TRAVAUX APRÈS TRI
-// =========================
+function colorRowByEtat(sheet, rowIndex, etat) {
+  let color = null;
+
+  if (etat === "Dangereux (A abattre)") color = "#f28b82";
+  if (etat === "A surveiller") color = "#fbbc04";
+  if (etat === "A élaguer (URGENT)") color = "#FFFF00";
+  if (etat === "A élaguer (Moyen)") color = "#00FFFF";
+  if (etat === "A élaguer (Faible)") color = "#ccff90";
+
+  const range = sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn());
+  if (color) range.setBackground(color);
+  else range.setBackground(null);
+}
+
+function colorEtatTravaux(sheet, rowIndex, etat) {
+  let color = null;
+
+  if (etat === "Dangereux (A abattre)") color = "#f28b82";
+  if (etat === "A surveiller") color = "#fbbc04";
+  if (etat === "A élaguer (URGENT)") color = "#FFFF00";
+  if (etat === "A élaguer (Moyen)") color = "#00FFFF";
+  if (etat === "A élaguer (Faible)") color = "#ccff90";
+
+  const cell = sheet.getRange(rowIndex, 2); // col B
+  if (color) {
+    cell.setBackground(color);
+    cell.setFontWeight("bold");
+  } else {
+    cell.setBackground(null);
+    cell.setFontWeight("normal");
+  }
+}
+
+// recolor travaux (optionnel)
 function recolorEtatTravauxColumn_(sheetTravaux) {
   const lastRow = sheetTravaux.getLastRow();
   if (lastRow < 2) return;
 
-  const etats = sheetTravaux.getRange(2, 2, lastRow - 1, 1).getValues(); // col B
+  const etats = sheetTravaux.getRange(2, 2, lastRow - 1, 1).getValues();
   for (let i = 0; i < etats.length; i++) {
     const rowIndex = i + 2;
     const etat = String(etats[i][0] || "").trim();
@@ -863,15 +823,12 @@ function recolorEtatTravauxColumn_(sheetTravaux) {
   }
 }
 
-// =========================
-// 🎨 RECOLOR ARBRES APRÈS TRI
-// =========================
+// recolor arbres (optionnel)
 function recolorArbresRows_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
-  // etat colonne 13
-  const etats = sheet.getRange(2, 13, lastRow - 1, 1).getValues();
+  const etats = sheet.getRange(2, 13, lastRow - 1, 1).getValues(); // col 13
   for (let i = 0; i < etats.length; i++) {
     const rowIndex = i + 2;
     const etat = String(etats[i][0] || "").trim();
@@ -879,9 +836,7 @@ function recolorArbresRows_(sheet) {
   }
 }
 
-// =========================
-// 🎯 COULEUR TRAVAUX PAR ID (FIABLE)
-// =========================
+// couleur travaux par ID (fiable)
 function recolorTravauxById_(sheetTravaux) {
   const lastRow = sheetTravaux.getLastRow();
   if (lastRow < 2) return;
@@ -896,16 +851,13 @@ function recolorTravauxById_(sheetTravaux) {
   }
 }
 
-// =========================
-// 🎯 COULEUR ARBRES PAR ID (FIABLE)
-// =========================
+// couleur arbres par ID (fiable)
 function recolorArbresById_(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
-  const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues();  // col B
+  const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues();   // col B
   const etats = sheet.getRange(2, 13, lastRow - 1, 1).getValues(); // col 13
-
   for (let i = 0; i < ids.length; i++) {
     const rowIndex = i + 2;
     const id = String(ids[i][0] || "").trim();
@@ -915,326 +867,439 @@ function recolorArbresById_(sheet) {
   }
 }
 
-// =========================
-// 🎯 RECOLOR 1 ARBRE PAR ID
-// =========================
 function recolorOneArbreById_(sheet, treeId) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
-  const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // col B = ID
+  const ids = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // col B
   for (let i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(treeId).trim()) {
       const rowIndex = i + 2;
-      const etat = String(sheet.getRange(rowIndex, 13).getValue() || "").trim(); // col 13 = etat
+      const etat = String(sheet.getRange(rowIndex, 13).getValue() || "").trim(); // col 13
       colorRowByEtat(sheet, rowIndex, etat);
       return;
     }
   }
 }
 
-// =========================
-// 🎯 RECOLOR 1 TRAVAUX PAR ID
-// =========================
 function recolorOneTravauxById_(sheetTravaux, treeId) {
   const lastRow = sheetTravaux.getLastRow();
   if (lastRow < 2) return;
 
-  const ids = sheetTravaux.getRange(2, 1, lastRow - 1, 1).getValues(); // col A = ID
+  const ids = sheetTravaux.getRange(2, 1, lastRow - 1, 1).getValues(); // col A
   for (let i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(treeId).trim()) {
       const rowIndex = i + 2;
-      const etat = String(sheetTravaux.getRange(rowIndex, 2).getValue() || "").trim(); // col B = etat
+      const etat = String(sheetTravaux.getRange(rowIndex, 2).getValue() || "").trim(); // col B
       colorEtatTravaux(sheetTravaux, rowIndex, etat);
       return;
     }
   }
 }
 
+
+// =========================
+// 📏 UTIL PDF — hauteur de ligne selon texte
+// =========================
+function estimateRowHeight_(text, baseHeight, pxPerLine) {
+  const t = String(text || "");
+  const lines = Math.max(1, t.split("\n").length);
+  const h = Math.round(Math.max(baseHeight, lines * pxPerLine));
+  return h;
+}
+
 /* =========================
-   📄 EXPORT PDF (HISTORIQUE + FICHE ARBRE)
-   - Génération HTML -> PDF via HtmlService
-   - Stockage dans un sous-dossier Drive (Exports_PDF)
+   🔐 EXPORT PDF (ADMIN UNIQUEMENT)
 ========================= */
-
-function getOrCreateExportsFolder_() {
-  const root = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  const name = "Exports_PDF";
-  const it = root.getFoldersByName(name);
-  return it.hasNext() ? it.next() : root.createFolder(name);
-}
-
-function safeFileName_(s) {
-  return String(s || "")
-    .replace(/[\\/:*?\"<>|]+/g, "-")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function driveFileToDataUrl_(driveId) {
-  if (!driveId) return "";
-  try {
-    const f = DriveApp.getFileById(driveId);
-    const blob = f.getBlob();
-    const bytes = blob.getBytes();
-    const b64 = Utilities.base64Encode(bytes);
-    const mime = blob.getContentType() || f.getMimeType() || "application/octet-stream";
-    return `data:${mime};base64,${b64}`;
-  } catch (e) {
-    Logger.log("driveFileToDataUrl_ error: " + e);
-    return "";
+function assertAdmin_(meta) {
+  if (!meta || String(meta.role || "").toLowerCase() !== "admin") {
+    throw new Error("ADMIN_ONLY");
   }
 }
 
-function exportPdfFromHtml_(html, filename) {
-  const folder = getOrCreateExportsFolder_();
+function writeCoverPage_(sheet, title, meta) {
+  sheet.clear();
 
-  const htmlBlob = HtmlService.createHtmlOutput(html).getBlob();
-  const pdfBlob = htmlBlob.getAs(MimeType.PDF).setName(filename);
+  // 📄 Mise en page A4 + impression
+  sheet.setHiddenGridlines(true);
+  try { sheet.setPageOrientation(SpreadsheetApp.PageOrientation.PORTRAIT); } catch (e) {}
+  try { sheet.setPaperSize(SpreadsheetApp.PaperSize.A4); } catch (e) {}
+  try {
+    sheet.setMargins({
+      top: PDF_MARGIN_INCH,
+      bottom: PDF_MARGIN_INCH,
+      left: PDF_MARGIN_INCH,
+      right: PDF_MARGIN_INCH
+    });
+  } catch (e) {}
 
-  const file = folder.createFile(pdfBlob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // Largeurs pensées pour un PDF A4 portrait (A→E)
+  sheet.setColumnWidths(1, 1, 255); // A ID / zone gauche
+  sheet.setColumnWidths(2, 1, 128); // B
+  sheet.setColumnWidths(3, 1, 160); // C
+  sheet.setColumnWidths(4, 1, 200); // D
+  sheet.setColumnWidths(5, 1, 420); // E (texte long)
 
-  return {
-    fileId: file.getId(),
-    url: file.getUrl(),
-    filename
-  };
+  // Hauteurs de base (on ajuste ensuite les zones clés)
+  sheet.setRowHeights(1, 60, 28);
+
+ // 🖼️ LOGO VILLE — insertion réelle (PDF-safe)
+if (MAIRIE_LOGO_URL) {
+  try {
+    const logoBlob = UrlFetchApp.fetch(MAIRIE_LOGO_URL).getBlob();
+    sheet.insertImage(logoBlob, 1, 1) // colonne A, ligne 1
+      .setWidth(180)
+      .setHeight(180);
+  } catch (e) {
+    Logger.log("Logo PDF erreur: " + e);
+  }
 }
 
-function pdfBaseCss_() {
-  return `
-    <style>
-      @page { margin: 18mm 14mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color:#111; font-size:12px; }
-      h1 { font-size:18px; margin:0 0 8px; }
-      h2 { font-size:14px; margin:18px 0 8px; border-bottom: 1px solid #e5e7eb; padding-bottom:6px; }
-      .muted { color:#6b7280; }
-      .meta { margin: 6px 0 0; }
-      .box { border:1px solid #e5e7eb; border-radius:10px; padding:10px; margin:10px 0; }
-      .grid { width:100%; border-collapse: collapse; }
-      .grid td { padding:6px 8px; vertical-align: top; }
-      .grid td:first-child{ width: 34%; color:#374151; }
-      .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#f3f4f6; border:1px solid #e5e7eb; font-size:11px; }
-      .photo { width:100%; max-height:260px; object-fit: contain; border-radius:10px; border:1px solid #e5e7eb; }
-      .list { margin:0; padding-left:16px; }
-      .list li { margin: 6px 0; }
-      .sep { height:1px; background:#e5e7eb; margin:14px 0; }
-      .page-break { page-break-before: always; }
-      .small { font-size: 11px; }
-      .k { font-weight:700; }
-    </style>
-  `;
+
+  // 🏛️ TITRES OFFICIELS
+  sheet.getRange("C1")
+    .setValue("   VILLE DE MARCQ-EN-BARŒUL")
+    .setFontSize(FONT_TITLE)
+    .setFontWeight("bold");
+
+  sheet.getRange("C3")
+    .setValue("Gestion du patrimoine arboré communal")
+    .setFontSize(FONT_SUBTITLE)
+    .setFontWeight("bold");
+
+  sheet.getRange("B5")
+    .setValue(           title)
+    .setFontSize(FONT_SECTION)
+    .setFontWeight("bold");
+
+  // 📜 TEXTE RÉGLEMENTAIRE (fusion A8 → E12)
+  const regRange = sheet.getRange("A8:E12");
+  regRange.merge()
+    .setValue(
+      "DOCUMENT ADMINISTRATIF OFFICIEL\n\n" +
+      "Ce document est généré automatiquement par le système d’information de la Ville.\n" +
+      "Il constitue une extraction fidèle et figée des données enregistrées à la date indiquée.\n" +
+      "Toute modification ultérieure des données sources n’affecte pas le présent document."
+    )
+    .setFontSize(FONT_LEGAL)
+    .setFontStyle("italic")
+    .setWrap(true)
+    .setVerticalAlignment("top");
+
+  // un peu plus d'air pour le texte réglementaire
+  try { sheet.setRowHeights(8, 5, 40); } catch (e) {}
+
+  // 📅 MÉTADONNÉES (sous le texte réglementaire)
+  sheet.getRange("A14")
+    .setValue(
+      "Date de génération : " +
+      Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm")
+    )
+    .setFontSize(FONT_META)
+    .setFontStyle("italic");
+
+  sheet.getRange("A16")
+    .setValue("Généré par : " + ((meta && meta.login) ? meta.login : "Administrateur"))
+    .setFontSize(FONT_META)
+    .setFontStyle("italic");
+
+  // ✍️ SIGNATURE (placée sous photo/QR, fusion A34 → E38)
+  const signRange = sheet.getRange("A37:E41");
+  signRange.merge()
+    .setValue(
+      "Service : Espaces verts \n\n" +
+      "Responsable : ____________________________\n\n" +
+      "Signature : ______________________________"
+    )
+    .setFontSize(FONT_BODY)
+    .setFontWeight("bold")
+    .setWrap(true)
+    .setVerticalAlignment("top");
+
+  try { sheet.setRowHeights(34, 5, 36); } catch (e) {}
+
+  // séparateur discret
+  sheet.getRange("A40").setValue("—");
 }
 
-function findTreeRow_(treeId) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
-  const last = sheet.getLastRow();
-  if (last < 2) return null;
-  const values = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
-  for (let i = 0; i < values.length; i++) {
-    if (String(values[i][1]).trim() === String(treeId).trim()) {
-      return { rowIndex: i + 2, row: values[i] };
+function exportHistoriqueArbreToPDF_(treeId, meta) {
+  assertAdmin_(meta);
+
+  const id = String(treeId || "").trim();
+  if (!id) throw new Error("ID_MANQUANT");
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const source = ss.getSheetByName(SHEET_PATRIMOINE);
+  if (!source) throw new Error("PATRIMOINE_ARBORE_INTROUVABLE");
+
+  const tmpName = "TMP_EXPORT_ARBRE";
+  const old = ss.getSheetByName(tmpName);
+  if (old) ss.deleteSheet(old);
+  const tmp = ss.insertSheet(tmpName);
+
+  writeCoverPage_(tmp, `Historique des travaux – Arbre ${id}`, meta);
+
+  const lastRow = source.getLastRow();
+  if (lastRow < 2) throw new Error("PATRIMOINE_VIDE");
+
+  const data = source.getRange(2, 1, lastRow - 1, source.getLastColumn()).getValues();
+
+  // =========================
+  // 🌳 Récup arbre + 📷 photo + QR
+  // =========================
+  let treeObj = null;
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const rowId = String(row[1]).trim();
+    if (rowId === id) {
+      let photos = [];
+      try { photos = row[12] ? JSON.parse(row[12]) : []; } catch (e) { photos = []; }
+      treeObj = {
+        id: rowId,
+        species: row[4] || "",
+        secteur: row[7] || "",
+        address: row[8] || "",
+        historique: String(row[10] || ""),
+        photos
+      };
+      break;
     }
   }
-  return null;
-}
-
-function parsePhotos_(raw) {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function splitInterventions_(txt) {
-  return String(txt || "")
-    .split(/\r?\n/)
-    .map(s => String(s || "").trim())
-    .filter(Boolean);
-}
-
-function extractYearFromInterventionLine_(line) {
-  // Ex: "🛠 29/01/2026 10:45:00 — ..." ou "29/01/2026 — ..."
-  const m = String(line || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (!m) return "";
-  return m[3];
-}
-
-function extractDateLabel_(line) {
-  // renvoie le morceau "dd/mm/yyyy ..." si présent
-  const m = String(line || "").match(/(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
-  return m ? m[1] : "";
-}
-
-function exportTreePdf_(treeId) {
-  const found = findTreeRow_(treeId);
-  if (!found) {
-    throw new Error("Arbre introuvable : " + treeId);
+  if (!treeObj) {
+    ss.deleteSheet(tmp);
+    throw new Error("ARBRE_INTROUVABLE");
   }
 
-  const r = found.row;
-
-  const t = {
-    id: r[1],
-    lat: r[2],
-    lng: r[3],
-    species: r[4],
-    height: r[5],
-    dbh: r[6],
-    secteur: r[7],
-    address: r[8],
-    tags: r[9],
-    historiqueInterventions: r[10],
-    comment: r[11],
-    photos: parsePhotos_(r[12]),
-    etat: r[13],
-    updatedAt: r[14]
-  };
-
-  const firstPhotoId = t.photos?.[0]?.driveId || "";
-  const photoDataUrl = firstPhotoId ? driveFileToDataUrl_(firstPhotoId) : "";
-
-  const interventions = splitInterventions_(t.historiqueInterventions);
-  const generatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
-
-  const html = `
-    <html><head><meta charset="utf-8">${pdfBaseCss_()}</head><body>
-      <h1>Fiche de l’arbre — ${safeFileName_(t.id)}</h1>
-      <div class="muted small">Exporté le ${generatedAt}</div>
-
-      ${photoDataUrl ? `<div class="box"><img class="photo" src="${photoDataUrl}" /></div>` : ``}
-
-      <div class="box">
-        <table class="grid">
-          <tr><td class="k">ID</td><td>${t.id || "—"}</td></tr>
-          <tr><td class="k">Espèce</td><td>${t.species || "—"}</td></tr>
-          <tr><td class="k">Secteur</td><td>${t.secteur || "—"}</td></tr>
-          <tr><td class="k">Adresse</td><td>${t.address || "—"}</td></tr>
-          <tr><td class="k">Coordonnées</td><td>${t.lat || "—"}, ${t.lng || "—"}</td></tr>
-          <tr><td class="k">Hauteur estimée</td><td>${(t.height !== "" && t.height !== null && t.height !== undefined) ? (t.height + " m") : "—"}</td></tr>
-          <tr><td class="k">Diamètre tronc</td><td>${(t.dbh !== "" && t.dbh !== null && t.dbh !== undefined) ? (t.dbh + " cm") : "—"}</td></tr>
-          <tr><td class="k">État</td><td>${t.etat || "—"}</td></tr>
-          <tr><td class="k">Tags</td><td>${t.tags || "—"}</td></tr>
-        </table>
-      </div>
-
-      <div class="box">
-        <div class="k">Commentaire</div>
-        <div class="muted" style="white-space:pre-wrap">${(t.comment || "—").toString().replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-      </div>
-
-      <h2>Historique des interventions</h2>
-      ${interventions.length ? `
-        <ul class="list">
-          ${interventions.map(x => {
-            const safe = x.toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return `<li>${safe}</li>`;
-          }).join('')}
-        </ul>
-      ` : `<div class="muted">Aucune intervention enregistrée.</div>`}
-    </body></html>
-  `;
-
-  const filename = safeFileName_(`Fiche_Arbre_${t.id}.pdf`);
-  return exportPdfFromHtml_(html, filename);
-}
-
-function exportHistoryPdf_(year) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName("Patrimoine_arboré");
-  const last = sheet.getLastRow();
-  if (last < 2) {
-    throw new Error("Aucun arbre dans la base.");
+  // 📷 Photo (première photo Drive trouvée) — bloc gauche
+  if (Array.isArray(treeObj.photos) && treeObj.photos.length > 0) {
+    const p = treeObj.photos.find(x => x && x.driveId);
+    if (p && p.driveId) {
+      try {
+        const photoBlob = DriveApp.getFileById(String(p.driveId)).getBlob();
+        // position : A24
+        tmp.insertImage(photoBlob, 1, 22).setWidth(560).setHeight(400);
+        try { tmp.setRowHeight(24, 280); } catch (e) {}
+      } catch (e) {
+        Logger.log("Photo PDF: " + e);
+      }
+    }
   }
 
-  const rows = sheet.getRange(2, 1, last - 1, sheet.getLastColumn()).getValues();
-  const byYear = {}; // year -> entries[]
+  // 📱 QR Code — bloc droit (E24) + libellé sous le QR
+  if (BASE_FICHE_URL) {
+    const ficheUrl = `${BASE_FICHE_URL}?id=${encodeURIComponent(treeObj.id)}`;
+    const qrGenUrl =
+      "https://api.qrserver.com/v1/create-qr-code/" +
+      "?size=600x600&data=" + encodeURIComponent(ficheUrl);
 
-  rows.forEach(r => {
-    const treeId = r[1];
-    const species = r[4];
-    const secteur = r[7];
-    const address = r[8];
-    const hist = r[10];
+    try {
+      const qrBlob = UrlFetchApp.fetch(qrGenUrl).getBlob();
+      tmp.insertImage(qrBlob, 5, 24).setWidth(150).setHeight(150);
+      tmp.getRange("E30")
+        .setValue("Scanner pour consulter\nla fiche en ligne")
+        .setFontSize(FONT_META)
+        .setHorizontalAlignment("center")
+        .setVerticalAlignment("top")
+        .setWrap(true);
+    } catch (e) {
+      Logger.log("QR PDF: " + e);
+    }
+  }
 
-    const lines = splitInterventions_(hist);
-    lines.forEach(line => {
-      const y = extractYearFromInterventionLine_(line);
-      if (!y) return;
-      if (year && String(year).trim() && String(y) !== String(year).trim()) return;
+  // =========================
+  // 📊 TABLEAU — zone contrôlée (évite que ça parte en bas / minuscule)
+  // =========================
+  const TABLE_START_ROW = 56; // ⬅️ déplace le tableau ici si besoin
 
-      (byYear[y] = byYear[y] || []).push({
-        treeId,
-        species,
-        secteur,
-        address,
-        dateLabel: extractDateLabel_(line),
-        line
-      });
+  // En-tête
+  tmp.getRange(`A${TABLE_START_ROW}:E${TABLE_START_ROW}`)
+    .setValues([[
+      "ID Arbre",
+      "Espèce",
+      "Secteur",
+      "Adresse",
+      "Historique des interventions"
+    ]])
+    .setFontWeight("bold")
+    .setFontSize(FONT_BODY)
+    .setWrap(true)
+    .setVerticalAlignment("middle");
+
+  // Ligne infos (A-D) + Historique sur la ligne suivante (A→E fusion)
+  const infoRow = TABLE_START_ROW + 1;
+  tmp.getRange(`A${infoRow}:D${infoRow}`)
+    .setValues([[treeObj.id, treeObj.species, treeObj.secteur, treeObj.address]])
+    .setFontSize(FONT_BODY)
+    .setVerticalAlignment("middle")
+    .setWrap(true);
+
+  // Historique : grosse zone lisible
+  const histRow = infoRow + 1;
+  const histRange = tmp.getRange(`A${histRow}:E${histRow}`);
+  histRange.merge()
+    .setValue(treeObj.historique || "")
+    .setFontSize(FONT_BODY) // ✅ même taille que le reste (plus "minuscule")
+    .setWrap(true)
+    .setVerticalAlignment("top");
+
+  // hauteur auto selon nombre de lignes
+  const h = estimateRowHeight_(treeObj.historique, 110, 26);
+  try { tmp.setRowHeight(histRow, h); } catch (e) {}
+
+  // un peu d'air au-dessus du tableau
+  try { tmp.setRowHeights(1, TABLE_START_ROW - 1, 28); } catch (e) {}
+
+  // si aucune intervention -> erreur
+  if (!treeObj.historique) {
+    ss.deleteSheet(tmp);
+    throw new Error("AUCUNE_INTERVENTION_POUR_CET_ARBRE");
+  }
+
+  SpreadsheetApp.flush();
+
+  const sheetId = tmp.getSheetId();
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd_HH-mm");
+  const fileName = `Historique_Arbre_${id}_${now}.pdf`;
+
+  const url =
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export` +
+    `?format=pdf` +
+    `&gid=${sheetId}` +
+    `&portrait=true` +
+    `&fitw=true` +
+    `&top_margin=${PDF_MARGIN_INCH}` +
+    `&bottom_margin=${PDF_MARGIN_INCH}` +
+    `&left_margin=${PDF_MARGIN_INCH}` +
+    `&right_margin=${PDF_MARGIN_INCH}` +
+    `&sheetnames=false` +
+    `&printtitle=false` +
+    `&fzr=false` +
+    `&gridlines=false` +
+    `&pagenumbers=true`;
+
+  const blob = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }
+  }).getBlob().setName(fileName);
+
+  const file = DriveApp.getFolderById(DRIVE_FOLDER_ID).createFile(blob);
+
+  ss.deleteSheet(tmp);
+
+  return { ok: true, url: file.getUrl(), fileUrl: file.getUrl(), name: fileName };
+}
+
+function exportHistoriqueAnnuelToPDF_(year, meta) {
+  assertAdmin_(meta);
+
+  const y = Number(year);
+  if (!Number.isFinite(y) || y < 2000 || y > 2100) throw new Error("ANNEE_INVALIDE");
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const source = ss.getSheetByName(SHEET_PATRIMOINE);
+  if (!source) throw new Error("PATRIMOINE_ARBORE_INTROUVABLE");
+
+  const tmpName = "TMP_EXPORT_ANNUEL";
+  const old = ss.getSheetByName(tmpName);
+  if (old) ss.deleteSheet(old);
+  const tmp = ss.insertSheet(tmpName);
+
+  writeCoverPage_(tmp, `                           Historique annuel des travaux – ${y}`, meta); //garder espaces devant Historique
+
+  const lastRow = source.getLastRow();
+  if (lastRow < 2) throw new Error("PATRIMOINE_VIDE");
+
+  const data = source.getRange(2, 1, lastRow - 1, source.getLastColumn()).getValues();
+
+
+
+
+  // =========================
+  // 📊 TABLEAU — annuel
+  // =========================
+  const TABLE_START_ROW = 56;
+
+  tmp.getRange(`A${TABLE_START_ROW}:F${TABLE_START_ROW}`)
+    .setValues([[
+      "ID Arbre",
+      "Espèce",
+      "Secteur",
+      "Adresse",
+      "Année",
+      "Intervention"
+    ]])
+    .setFontWeight("bold")
+    .setFontSize(FONT_BODY)
+    .setWrap(true)
+    .setVerticalAlignment("middle");
+
+  // largeurs (A→F)
+  tmp.setColumnWidths(1, 1, 120);
+  tmp.setColumnWidths(2, 1, 140);
+  tmp.setColumnWidths(3, 1, 160);
+  tmp.setColumnWidths(4, 1, 220);
+  tmp.setColumnWidths(5, 1, 80);
+  tmp.setColumnWidths(6, 1, 420);
+
+  let rowCursor = TABLE_START_ROW + 1;
+  let count = 0;
+
+  data.forEach(row => {
+    const treeId = String(row[1]).trim();
+    const historique = String(row[10] || "");
+    if (!historique) return;
+
+    historique.split("\n").forEach(line => {
+      if (line.includes(String(y))) {
+        tmp.getRange(rowCursor, 1, 1, 6)
+          .setValues([[treeId, row[4] || "", row[7] || "", row[8] || "", y, line]])
+          .setFontSize(FONT_BODY)
+          .setWrap(true)
+          .setVerticalAlignment("top");
+        // hauteur selon texte d'intervention
+        try { tmp.setRowHeight(rowCursor, estimateRowHeight_(line, 40, 24)); } catch (e) {}
+        rowCursor++;
+        count++;
+      }
     });
   });
 
-  const years = Object.keys(byYear).sort((a, b) => Number(b) - Number(a));
-  const generatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy HH:mm");
-
-  const title = year && String(year).trim()
-    ? `Historique des interventions — ${String(year).trim()}`
-    : "Historique des interventions — Toutes années";
-
-  let body = `
-    <h1>${title}</h1>
-    <div class="muted small">Exporté le ${generatedAt}</div>
-  `;
-
-  if (years.length === 0) {
-    body += `<div class="box"><div class="muted">Aucune intervention trouvée${year ? " pour l’année " + year : ""}.</div></div>`;
-  } else {
-    years.forEach((y, idx) => {
-      const entries = byYear[y] || [];
-      if (!entries.length) return;
-
-      // tri : d'abord par date (si possible), sinon par texte
-      entries.sort((a, b) => {
-        const da = a.dateLabel || "";
-        const db = b.dateLabel || "";
-        return db.localeCompare(da);
-      });
-
-      body += `
-        ${idx ? '<div class="page-break"></div>' : ''}
-        <h2>Année ${y} <span class="badge">${entries.length} intervention(s)</span></h2>
-        <div class="box">
-          <table class="grid" style="border-collapse:separate; border-spacing:0 6px;">
-            <tr>
-              <td class="k">Date</td>
-              <td class="k">Arbre</td>
-              <td class="k">Secteur / Adresse</td>
-              <td class="k">Intervention</td>
-            </tr>
-            ${entries.map(e => {
-              const safeLine = String(e.line || "").replace(/</g,'&lt;').replace(/>/g,'&gt;');
-              const safeAddr = String((e.secteur || "") + (e.address ? " • " + e.address : "")).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-              const safeTree = String((e.treeId || "") + (e.species ? " • " + e.species : "")).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-              return `
-                <tr>
-                  <td>${(e.dateLabel || "—")}</td>
-                  <td>${safeTree || "—"}</td>
-                  <td>${safeAddr || "—"}</td>
-                  <td style="white-space:pre-wrap">${safeLine}</td>
-                </tr>
-              `;
-            }).join('')}
-          </table>
-        </div>
-      `;
-    });
+  if (count === 0) {
+    ss.deleteSheet(tmp);
+    throw new Error("AUCUNE_INTERVENTION_POUR_CETTE_ANNEE");
   }
 
-  const html = `<html><head><meta charset="utf-8">${pdfBaseCss_()}</head><body>${body}</body></html>`;
-  const filename = safeFileName_(`Historique_Interventions_${year && String(year).trim() ? String(year).trim() : 'ALL'}.pdf`);
-  return exportPdfFromHtml_(html, filename);
-}
+  // un peu d'air au-dessus du tableau
+  try { tmp.setRowHeights(1, TABLE_START_ROW - 1, 28); } catch (e) {}
 
+  SpreadsheetApp.flush();
+
+  const sheetId = tmp.getSheetId();
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd_HH-mm");
+  const fileName = `Historique_Travaux_${y}_${now}.pdf`;
+
+  const url =
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export` +
+    `?format=pdf` +
+    `&gid=${sheetId}` +
+    `&portrait=true` +
+    `&fitw=true` +
+    `&top_margin=${PDF_MARGIN_INCH}` +
+    `&bottom_margin=${PDF_MARGIN_INCH}` +
+    `&left_margin=${PDF_MARGIN_INCH}` +
+    `&right_margin=${PDF_MARGIN_INCH}` +
+    `&sheetnames=false` +
+    `&printtitle=false` +
+    `&fzr=false` +
+    `&gridlines=false` +
+    `&pagenumbers=true`;
+
+  const blob = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }
+  }).getBlob().setName(fileName);
+
+  const file = DriveApp.getFolderById(DRIVE_FOLDER_ID).createFile(blob);
+
+  ss.deleteSheet(tmp);
+
+  return { ok: true, url: file.getUrl(), fileUrl: file.getUrl(), name: fileName, count };
+}
