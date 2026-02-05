@@ -1255,18 +1255,21 @@ const photoStatus = document.getElementById("photoStatus");
 cameraInput.addEventListener("change", async () => {
   if (!cameraInput.files || !cameraInput.files[0]) return;
 
-  const photos = await readFilesAsDataUrls(cameraInput.files);
-  pendingPhotos.push(...photos);
+  const newPhotos = await readFilesAsDataUrls(cameraInput.files);
 
-  cameraInput.value = "";
+  for (const photo of newPhotos) {
+    if (!pendingPhotos.some(
+      p => p.name === photo.name && p.size === photo.size
+    )) {
+      pendingPhotos.push(photo);
+    }
+  }
+
+  cameraInput.value = ""; // 🔒 empêche double déclenchement
 
   updatePhotoStatus();
-  const t = selectedId ? getTreeById(selectedId) : null;
-  
-renderGallery(pendingPhotos);
-renderPhotoCarousel(pendingPhotos);
-
-
+  renderGallery(pendingPhotos);
+  renderPhotoCarousel(pendingPhotos);
 });
 
 
@@ -1274,16 +1277,23 @@ renderPhotoCarousel(pendingPhotos);
 galleryInput.addEventListener("change", async () => {
   if (!galleryInput.files || galleryInput.files.length === 0) return;
 
-  const photos = await readFilesAsDataUrls(galleryInput.files);
-  pendingPhotos.push(...photos);
+  const newPhotos = await readFilesAsDataUrls(galleryInput.files);
 
-  galleryInput.value = ""; // reset
+  for (const photo of newPhotos) {
+    if (!pendingPhotos.some(
+      p => p.name === photo.name && p.size === photo.size
+    )) {
+      pendingPhotos.push(photo);
+    }
+  }
+
+  galleryInput.value = ""; // 🔒 reset obligatoire
 
   updatePhotoStatus();
   renderGallery(pendingPhotos);
   renderPhotoCarousel(pendingPhotos);
-
 });
+
 
 
 function updatePhotoStatus() {
