@@ -1951,20 +1951,12 @@ window.exportSurveillancePDF = async function () {
 
   if (!confirm("Exporter le PDF des arbres à surveiller ?")) return;
 
-  try {
-    const res = await window.postToGAS({
-      action: "exportSurveillancePDF"
-    });
+  const res = await postToGAS({ action: "exportSurveillancePDF" });
 
-    if (!res || !res.ok || !res.url) {
-      console.error(res);
-      return alert("Erreur lors de l’export PDF");
-    }
-
+  if (res?.url) {
     window.open(res.url, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    alert("Erreur lors de l’export PDF");
   }
 };
 
@@ -1976,20 +1968,12 @@ window.exportAbattagesPDF = async function () {
 
   if (!confirm("Exporter le PDF des abattages ?")) return;
 
-  try {
-    const res = await window.postToGAS({
-      action: "exportAbattagesPDF"
-    });
+  const res = await postToGAS({ action: "exportAbattagesPDF" });
 
-    if (!res || !res.ok || !res.url) {
-      console.error(res);
-      return alert("Erreur lors de l’export PDF");
-    }
-
+  if (res?.url) {
     window.open(res.url, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    alert("Erreur lors de l’export PDF");
   }
 };
 
@@ -2001,19 +1985,11 @@ window.exportElagagesPDF = async function () {
 
   if (!confirm("Exporter le PDF des élagages ?")) return;
 
-  try {
-    const res = await window.postToGAS({
-      action: "exportElagagesPDF"
-    });
+  const res = await postToGAS({ action: "exportElagagesPDF" });
 
-    if (!res || !res.ok || !res.url) {
-      console.error(res);
-      return alert("Erreur lors de l’export PDF");
-    }
-
+  if (res?.url) {
     window.open(res.url, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    alert("Erreur lors de l’export PDF");
   }
 };
