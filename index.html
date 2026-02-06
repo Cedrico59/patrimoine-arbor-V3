@@ -351,6 +351,9 @@ body.agent-mode button {
         <button class="secondary" onclick="openTreeInNewTab()">Ouvrir la fiche</button>
         <button class="secondary" onclick="exportArbrePDF((document.getElementById('p-id')?.textContent||'').trim())">📑 Export PDF arbre (admin)</button>
         <button class="secondary" onclick="exportAnnuelPDF()">📆 Export PDF annuel (admin)</button>
+        <button class="secondary" onclick="exportSurveillancePDF()">📄 PDF – Arbres à surveiller</button>
+        <button class="secondary" onclick="exportAbattagesPDF()"> 🔴 PDF – Abattages</button>
+        <button class="secondary" onclick="exportElagagesPDF()"> ✂️ PDF – Élagages</button>
       </div>
     </div>
 
