@@ -1940,3 +1940,80 @@ window.exportAnnuelPDF = async function () {
   }
 };
 
+// =========================
+// 📄 EXPORT PDF — FEUILLES MÉTIER
+// =========================
+window.exportSurveillancePDF = async function () {
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
+
+  if (!confirm("Exporter le PDF des arbres à surveiller ?")) return;
+
+  try {
+    const res = await window.postToGAS({
+      action: "exportSurveillancePDF"
+    });
+
+    if (!res || !res.ok || !res.url) {
+      console.error(res);
+      return alert("Erreur lors de l’export PDF");
+    }
+
+    window.open(res.url, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
+  }
+};
+
+window.exportAbattagesPDF = async function () {
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
+
+  if (!confirm("Exporter le PDF des abattages ?")) return;
+
+  try {
+    const res = await window.postToGAS({
+      action: "exportAbattagesPDF"
+    });
+
+    if (!res || !res.ok || !res.url) {
+      console.error(res);
+      return alert("Erreur lors de l’export PDF");
+    }
+
+    window.open(res.url, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
+  }
+};
+
+window.exportElagagesPDF = async function () {
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
+
+  if (!confirm("Exporter le PDF des élagages ?")) return;
+
+  try {
+    const res = await window.postToGAS({
+      action: "exportElagagesPDF"
+    });
+
+    if (!res || !res.ok || !res.url) {
+      console.error(res);
+      return alert("Erreur lors de l’export PDF");
+    }
+
+    window.open(res.url, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
+  }
+};
