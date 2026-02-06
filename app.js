@@ -1944,53 +1944,49 @@ window.exportAnnuelPDF = async function () {
 // 📄 EXPORT PDF — FEUILLES MÉTIER
 // =========================
 window.exportSurveillancePDF = async function () {
-  if (!isAdmin()) {
-    alert("Action réservée à l’administrateur");
-    return;
-  }
+  try {
+    const res = await postToGAS({ action: "exportSurveillancePDF" });
 
-  if (!confirm("Exporter le PDF des arbres à surveiller ?")) return;
+    if (!res || !res.ok || !res.fileUrl) {
+      console.error(res);
+      return alert("Erreur export PDF Arbres à surveiller");
+    }
 
-  const res = await postToGAS({ action: "exportSurveillancePDF" });
-
-  if (res?.url) {
-    window.open(res.url, "_blank");
-  } else {
-    alert("Erreur lors de l’export PDF");
+    window.open(res.fileUrl, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
   }
 };
 
 window.exportAbattagesPDF = async function () {
-  if (!isAdmin()) {
-    alert("Action réservée à l’administrateur");
-    return;
-  }
+  try {
+    const res = await postToGAS({ action: "exportAbattagesPDF" });
 
-  if (!confirm("Exporter le PDF des abattages ?")) return;
+    if (!res || !res.ok || !res.fileUrl) {
+      console.error(res);
+      return alert("Erreur export PDF Abattages");
+    }
 
-  const res = await postToGAS({ action: "exportAbattagesPDF" });
-
-  if (res?.url) {
-    window.open(res.url, "_blank");
-  } else {
-    alert("Erreur lors de l’export PDF");
+    window.open(res.fileUrl, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
   }
 };
 
 window.exportElagagesPDF = async function () {
-  if (!isAdmin()) {
-    alert("Action réservée à l’administrateur");
-    return;
-  }
+  try {
+    const res = await postToGAS({ action: "exportElagagesPDF" });
 
-  if (!confirm("Exporter le PDF des élagages ?")) return;
+    if (!res || !res.ok || !res.fileUrl) {
+      console.error(res);
+      return alert("Erreur export PDF Élagages");
+    }
 
-  const res = await postToGAS({ action: "exportElagagesPDF" });
-
-  if (res?.url) {
-    window.open(res.url, "_blank");
-  } else {
-    alert("Erreur lors de l’export PDF");
+    window.open(res.fileUrl, "_blank");
+  } catch (e) {
+    console.error(e);
+    alert("Erreur export PDF");
   }
 };
-
