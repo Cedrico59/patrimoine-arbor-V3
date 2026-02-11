@@ -956,16 +956,19 @@ const stampedDataUrl = await stampPhotoWithMeta(
     lngEl().value = "";
   }
 
+ function setSelected(id) {
+
+  // 🔥 RESET COMPLET DES PHOTOS (OBLIGATOIRE)
   renderGallery([]);
-}
+  carouselPhotos = [];
+  carouselIndex = 0;
+  document.getElementById("photoCarousel")?.classList.add("hidden");
 
+  pendingPhotos = [];
+  selectedId = id;
 
-  function setSelected(id) {
-    
-pendingPhotos = [];
+  const t = id ? getTreeById(id) : null;
 
-    selectedId = id;
-    const t = id ? getTreeById(id) : null;
 
     if (!t) {
       editorTitle().textContent = "Ajouter un arbre";
