@@ -14,6 +14,8 @@ const MAIRIE_LOGO_URL = "https://raw.githubusercontent.com/Cedrico59/patrimoine-
 
 
 
+
+
 // =========================
 // 📄 CONFIG PDF / QR
 // =========================
@@ -453,6 +455,20 @@ function doPost(e) {
       const out = exportHistoriqueAnnuelToPDF_(Number(data.year), meta);
       return jsonResponse(out);
     }
+   if (data.action === "exportSurveillancePDF") {
+  const out = exportArbresASurveillerPDF_(meta);
+  return jsonResponse(out);
+}
+
+if (data.action === "exportAbattagesPDF") {
+  const out = exportAbattagesPDF_(meta);
+  return jsonResponse(out);
+}
+
+if (data.action === "exportElagagesPDF") {
+  const out = exportElagagesPDF_(meta);
+  return jsonResponse(out);
+}
 
     /* ===== VALIDATION INTERVENTION ===== */
     if (data.action === "validateIntervention" && data.id && data.intervention) {
@@ -475,6 +491,7 @@ function doPost(e) {
             logHistory_(meta, "VALIDATE_INTERVENTION", data.id, { added: data.intervention });
             return ok({ status: "INTERVENTION_ADDED" });
           }
+         
         }
       }
       return ok({ status: "NOT_FOUND" });
@@ -628,7 +645,8 @@ function doPost(e) {
 
     /* ===== TRAVAUX (sync si état déclencheur) ===== */
     syncTravaux_(data);
-
+   
+    
     SpreadsheetApp.flush();
 
     // ✅ HISTORIQUE : état après + diff
@@ -656,6 +674,11 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({ ok: false, error: String(err) });
   }
+   // 👇 ICI, TOUT À LA FIN
+return jsonResponse({
+  ok: false,
+  error: "Action inconnue"
+});
 }
 
 /* =========================
@@ -727,6 +750,12 @@ function syncTravaux_(data) {
     colorEtatTravaux(sheetTravaux, newRow, etatArbre);
     recolorOneTravauxById_(sheetTravaux, data.id);
   }
+    /* =========================
+     FEUILLES MÉTIER (AJOUT ICI)
+  ========================= */
+  syncSurveillance_(data);
+  syncAbattages_(data);
+  syncElagages_(data);
 }
 
 /* =========================
@@ -1303,3 +1332,272 @@ function exportHistoriqueAnnuelToPDF_(year, meta) {
 
   return { ok: true, url: file.getUrl(), fileUrl: file.getUrl(), name: fileName, count };
 }
+
+
+
+/*************************************************
+ * CONFIG FEUILLES
+ *************************************************/
+const SHEET_SURVEILLANCE = "Arbres_à_surveiller";
+const SHEET_ABATTAGES = "Abattages";
+const SHEET_ELAGAGES = "Elagages";
+
+/*************************************************
+ * COULEURS PAR ÉTAT (PASTILLES)
+ *************************************************/
+const ETAT_COLORS = {
+  "A surveiller": "#FFE0B2",              // 🟠 orange
+  "Dangereux (A abattre)": "#FFCDD2",     // 🔴 rouge
+  "A élaguer (URGENT)": "#FFF9C4",        // 🟡 jaune
+  "A élaguer (Moyen)": "#BBDEFB",         // 🔵 bleu
+  "A élaguer (Faible)": "#C8E6C9"         // 🟢 vert
+};
+
+/*************************************************
+ * UTILITAIRES
+ *************************************************/
+// 🔎 recherche ID colonne B (format Patrimoine)
+function findRowByIdPatrimoine_(sheet, treeId) {
+  const last = sheet.getLastRow();
+  if (last < 2) return -1;
+
+  const ids = sheet.getRange(2, 2, last - 1, 1).getValues(); // 👈 colonne B
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(treeId).trim()) {
+      return i + 2;
+    }
+  }
+  return -1;
+}
+
+// trouver une ligne par ID (colonne A)
+function findRowById_(sheet, treeId) {
+  const last = sheet.getLastRow();
+  if (last < 2) return -1;
+  const ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === treeId) return i + 2;
+  }
+  return -1;
+}
+
+// colorer une ligne entière selon l’état
+function colorRow_(sheet, rowIndex, etat) {
+  const color = ETAT_COLORS[etat];
+  if (!color) return;
+  sheet
+    .getRange(rowIndex, 1, 1, sheet.getLastColumn())
+    .setBackground(color);
+}
+
+/*************************************************
+ * 1️⃣ ARBRES À SURVEILLER
+ * - format Patrimoine_arboré
+ * - MAJ complète
+ * - suppression si plus "A surveiller"
+ *************************************************/
+function syncSurveillance_(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_SURVEILLANCE);
+  if (!sheet) return;
+
+  const id = String(data.id || "").trim();
+  const etat = String(data.etat || "").trim();
+  if (!id) return;
+
+  const rowIndex = findRowByIdPatrimoine_(sheet, id);
+
+
+  // ❌ si plus à surveiller → suppression
+  if (etat !== "A surveiller") {
+    if (rowIndex !== -1) sheet.deleteRow(rowIndex);
+    return;
+  }
+
+  // format identique à Patrimoine_arboré
+  const row = [
+    new Date(),                          // createdAt
+    id,                                  // id
+    data.lat || "",
+    data.lng || "",
+    data.species || "",
+    data.height || "",
+    data.dbh || "",
+    data.secteur || "",
+    data.address || "",
+    (data.tags || []).join(","),
+    data.historiqueInterventions || "",
+    data.comment || "",
+    JSON.stringify(data.photos || []),
+    etat,
+    Date.now()
+  ];
+
+  if (rowIndex === -1) {
+    sheet.appendRow(row);
+    colorRow_(sheet, sheet.getLastRow(), etat);
+  } else {
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+    colorRow_(sheet, rowIndex, etat);
+  }
+}
+
+/*************************************************
+ * 2️⃣ + 3️⃣ ABATTAGES & ÉLAGAGES
+ * - format tableau_Elagages/Abattages
+ * - ajout à l’entrée
+ * - mise à jour UNIQUEMENT cellules vides
+ * - jamais supprimé
+ *************************************************/
+function syncTravauxPartiel_(data, sheetName) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
+
+  const id = String(data.id || "").trim();
+  const etat = String(data.etat || "").trim();
+  if (!id) return;
+
+  const row = [
+    id,
+    etat,
+    data.secteur || "",
+    data.dateDemande || "",
+    data.natureTravaux || "",
+    data.address || "",
+    data.species || "",
+    data.dateDemandeDevis || "",
+    data.devisNumero || "",
+    data.montantDevis || "",
+    data.dateExecution || "",
+    data.remarquesTravaux || "",
+    data.numeroBDC || "",
+    data.numeroFacture || ""
+  ];
+
+  let rowIndex = findRowById_(sheet, id);
+
+  // ➕ création
+  if (rowIndex === -1) {
+    sheet.appendRow(row);
+    rowIndex = sheet.getLastRow();
+  }
+  // 🔁 MAJ partielle (seulement cellules vides)
+  else {
+    const range = sheet.getRange(rowIndex, 1, 1, row.length);
+    const existing = range.getValues()[0];
+    const merged = existing.map((cell, i) =>
+      cell !== "" && cell !== null ? cell : (row[i] || "")
+    );
+    range.setValues([merged]);
+  }
+
+  const etatFinal = sheet.getRange(rowIndex, 2).getValue(); // colonne B
+colorRow_(sheet, rowIndex, String(etatFinal || "").trim());
+
+}
+function recolorElagages_() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_ELAGAGES);
+  if (!sheet) return;
+
+  const last = sheet.getLastRow();
+  if (last < 2) return;
+
+  const etats = sheet.getRange(2, 2, last - 1, 1).getValues();
+  for (let i = 0; i < etats.length; i++) {
+    colorRow_(sheet, i + 2, String(etats[i][0] || "").trim());
+  }
+}
+
+/*************************************************
+ * ABATTAGES
+ * 🔴 Dangereux (A abattre)
+ *************************************************/
+function syncAbattages_(data) {
+  if (String(data.etat || "").trim() !== "Dangereux (A abattre)") return;
+  syncTravauxPartiel_(data, SHEET_ABATTAGES);
+}
+
+/*************************************************
+ * ÉLAGAGESh
+ * 🔵 🟡 🟢
+ *************************************************/
+function syncElagages_(data) {
+  const ETATS = [
+    "A élaguer (URGENT)",
+    "A élaguer (Moyen)",
+    "A élaguer (Faible)"
+  ];
+  if (!ETATS.includes(String(data.etat || "").trim())) return;
+  syncTravauxPartiel_(data, SHEET_ELAGAGES);
+}
+
+/*************************************************
+ * 📌 POINT DE BRANCHEMENT OBLIGATOIRE
+ * À AJOUTER DANS doPost(), APRÈS syncTravaux_(data)
+ *************************************************/
+
+// syncSurveillance_(data);
+// syncAbattages_(data);
+// syncElagages_(data);
+function exportSheetToPDF_(sheetName, filePrefix, meta) {
+  assertAdmin_(meta);
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const source = ss.getSheetByName(sheetName);
+  if (!source) throw new Error("SHEET_INTROUVABLE");
+
+  const tmpName = "TMP_EXPORT_" + sheetName;
+  const old = ss.getSheetByName(tmpName);
+  if (old) ss.deleteSheet(old);
+
+  const tmp = source.copyTo(ss).setName(tmpName);
+
+  SpreadsheetApp.flush();
+
+  const sheetId = tmp.getSheetId();
+  const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd_HH-mm");
+  const fileName = `${filePrefix}_${now}.pdf`;
+
+  const url =
+    `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export` +
+    `?format=pdf` +
+    `&gid=${sheetId}` +
+    `&portrait=true` +
+    `&fitw=true` +
+    `&sheetnames=false` +
+    `&printtitle=false` +
+    `&fzr=false` +
+    `&gridlines=false`;
+
+  const blob = UrlFetchApp.fetch(url, {
+    headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }
+  }).getBlob().setName(fileName);
+
+  const file = DriveApp.getFolderById(DRIVE_FOLDER_ID).createFile(blob);
+
+  ss.deleteSheet(tmp);
+
+  return {
+    ok: true,
+    fileUrl: file.getUrl(),
+    name: fileName
+  };
+}
+
+
+function exportArbresASurveillerPDF_(meta) {
+  assertAdmin_(meta);
+  return exportSheetToPDF_(SHEET_SURVEILLANCE, "Arbres_a_surveiller", meta);
+}
+
+function exportAbattagesPDF_(meta) {
+  assertAdmin_(meta);
+  return exportSheetToPDF_(SHEET_ABATTAGES, "Abattages", meta);
+}
+
+function exportElagagesPDF_(meta) {
+  assertAdmin_(meta);
+  return exportSheetToPDF_(SHEET_ELAGAGES, "Elagages", meta);
+}
+
