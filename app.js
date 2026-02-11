@@ -666,14 +666,21 @@ del.onclick = async () => {
   const t = getTreeById(selectedId);
   if (!t) return;
 
-  await postToGAS({
-    action: "deletePhoto",
-    treeId: t.id,
-    photoDriveId: photo.driveId
-  });
+  const res = await postToGAS({
+  action: "deletePhoto",
+  treeId: t.id,
+  photoDriveId: photo.driveId
+});
 
-  await loadTreesFromSheets();
-  persistAndRefresh(t.id);
+if (res?.ok && res.result?.status === "PHOTO_DELETED") {
+  alert("📸 Photo retirée avec succès");
+} else {
+  alert("❌ Erreur lors de la suppression de la photo");
+}
+
+await loadTreesFromSheets();
+persistAndRefresh(t.id);
+
 };
 
 
