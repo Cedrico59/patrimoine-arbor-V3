@@ -955,6 +955,7 @@ const stampedDataUrl = await stampPhotoWithMeta(
     latEl().value = "";
     lngEl().value = "";
   }
+}
 
  function setSelected(id) {
 
