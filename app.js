@@ -1944,49 +1944,57 @@ window.exportAnnuelPDF = async function () {
 // 📄 EXPORT PDF — FEUILLES MÉTIER
 // =========================
 window.exportSurveillancePDF = async function () {
-  try {
-    const res = await postToGAS({ action: "exportSurveillancePDF" });
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
 
-    if (!res || !res.ok || !res.fileUrl) {
-      console.error(res);
-      return alert("Erreur export PDF Arbres à surveiller");
-    }
+  const res = await postToGAS({
+    action: "exportSurveillancePDF"
+  });
 
+  if (res?.ok && res.fileUrl) {
     window.open(res.fileUrl, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    console.error(res);
+    alert("Erreur export PDF Arbres à surveiller");
   }
 };
 
 window.exportAbattagesPDF = async function () {
-  try {
-    const res = await postToGAS({ action: "exportAbattagesPDF" });
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
 
-    if (!res || !res.ok || !res.fileUrl) {
-      console.error(res);
-      return alert("Erreur export PDF Abattages");
-    }
+  const res = await postToGAS({
+    action: "exportAbattagesPDF"
+  });
 
+  if (res?.ok && res.fileUrl) {
     window.open(res.fileUrl, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    console.error(res);
+    alert("Erreur export PDF Abattages");
   }
 };
 
 window.exportElagagesPDF = async function () {
-  try {
-    const res = await postToGAS({ action: "exportElagagesPDF" });
+  if (!isAdmin()) {
+    alert("Action réservée à l’administrateur");
+    return;
+  }
 
-    if (!res || !res.ok || !res.fileUrl) {
-      console.error(res);
-      return alert("Erreur export PDF Élagages");
-    }
+  const res = await postToGAS({
+    action: "exportElagagesPDF"
+  });
 
+  if (res?.ok && res.fileUrl) {
     window.open(res.fileUrl, "_blank");
-  } catch (e) {
-    console.error(e);
-    alert("Erreur export PDF");
+  } else {
+    console.error(res);
+    alert("Erreur export PDF Élagages");
   }
 };
+
+
