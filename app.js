@@ -73,18 +73,11 @@ var it = null;
 let authToken = localStorage.getItem("authToken");
 let gpsMarker = null;
 
-// =========================
-// 📍 GPS STATE
-// =========================
+// 🔒 GPS lock + stabilisation
 let gpsWatchId = null;
 let gpsSamples = [];
 let lockedGpsLat = null;
 let lockedGpsLng = null;
-
-// réglages GPS
-const GPS_SAMPLE_DURATION_MS = 10000; // 10s
-const GPS_MAX_ACCURACY_M = 25;        // ignorer > 25m
-
 // ------------------------------
 // 🔐 Déconnexion
 // ------------------------------
@@ -1150,83 +1143,94 @@ function addOrUpdateMarker(t) {
 // =========================
 // 📍 GEOLOCALISATION GPS
 // =========================
+function clearGpsLock() {
+  try {
+    if (gpsWatchId !== null) {
+      navigator.geolocation.clearWatch(gpsWatchId);
+      gpsWatchId = null;
+    }
+  } catch (e) {}
+
+  gpsSamples = [];
+  lockedGpsLat = null;
+  lockedGpsLng = null;
+
+  if (gpsMarker && map) {
+    try { map.removeLayer(gpsMarker); } catch (e) {}
+  }
+  gpsMarker = null;
+}
+
 function locateUserGPS() {
   if (!navigator.geolocation) {
     alert("La géolocalisation n’est pas supportée sur cet appareil.");
     return;
   }
 
-  // reset session
+  // reset précédent fix
+  clearGpsLock();
   gpsSamples = [];
-  if (gpsWatchId !== null) {
-    try { navigator.geolocation.clearWatch(gpsWatchId); } catch (e) {}
-    gpsWatchId = null;
-  }
 
-  editorTitle().textContent = "Recherche position GPS…";
-  editorHint().textContent = `Stabilisation GPS (${Math.round(GPS_SAMPLE_DURATION_MS/1000)} secondes)…`;
+  // UI
   selectedId = null;
   deleteBtn().disabled = true;
+  editorTitle().textContent = "Recherche position GPS…";
+  editorHint().textContent = "Stabilisation GPS (10 secondes)…";
   clearForm(false);
 
   gpsWatchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords || {};
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    (position) => {
+      const { latitude, longitude, accuracy } = position.coords;
 
-      // ignorer fixes trop mauvais
-      if (Number.isFinite(accuracy) && accuracy > GPS_MAX_ACCURACY_M) return;
+      // garde tout, mais on filtrera au calcul (évite 0 sample)
+      gpsSamples.push({ lat: latitude, lng: longitude, accuracy: accuracy || 999 });
 
-      gpsSamples.push({
-        lat: latitude,
-        lng: longitude,
-        accuracy: Number.isFinite(accuracy) ? accuracy : GPS_MAX_ACCURACY_M
-      });
-
-      // feedback live
+      // feedback live (dernière mesure)
       latEl().value = fmtCoord(latitude);
       lngEl().value = fmtCoord(longitude);
-      if (map) map.setView([latitude, longitude], Math.max(map.getZoom() || 0, 18));
-
-      // petit texte live
-      if (Number.isFinite(accuracy)) {
-        editorHint().textContent = `Stabilisation GPS… (±${Math.round(accuracy)} m)`;
-      }
+      if (map) map.setView([latitude, longitude], Math.max(map.getZoom(), 18));
     },
     (err) => {
       console.error(err);
+      clearGpsLock();
       alert("Impossible d’obtenir la position GPS.");
     },
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 20000
+    }
   );
 
-  // arrêt + verrouillage après X secondes
+  // ⏱️ après 10 secondes → verrouille la meilleure position (moyenne pondérée)
   setTimeout(() => {
-    if (gpsWatchId !== null) {
-      try { navigator.geolocation.clearWatch(gpsWatchId); } catch (e) {}
-      gpsWatchId = null;
-    }
+    try {
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+      }
+    } catch (e) {}
 
-    if (!gpsSamples.length) {
-      editorTitle().textContent = "Ajouter un arbre";
-      editorHint().textContent = "GPS insuffisamment précis. Réessaye ou déplace le point manuellement.";
-      alert("GPS insuffisamment précis. Réessaye.");
+    // filtre: ignore mesures trop imprécises
+    const usable = gpsSamples.filter(p => Number.isFinite(p.accuracy) && p.accuracy <= 25);
+
+    if (usable.length === 0) {
+      clearGpsLock();
+      alert("GPS insuffisamment précis (≤ 25 m). Réessaye.");
       return;
     }
 
-    // ✅ moyenne pondérée par précision (plus précis = plus de poids)
-    const weighted = gpsSamples.reduce(
+    // moyenne pondérée par la précision: w = 1/accuracy²
+    const weighted = usable.reduce(
       (acc, p) => {
-        const a = Math.max(1, p.accuracy || GPS_MAX_ACCURACY_M);
-        const w = 1 / (a * a);
+        const w = 1 / (p.accuracy * p.accuracy);
         acc.lat += p.lat * w;
         acc.lng += p.lng * w;
         acc.w += w;
-        acc.best = Math.min(acc.best, a);
-        acc.n += 1;
+        acc.bestAcc = Math.min(acc.bestAcc, p.accuracy);
         return acc;
       },
-      { lat: 0, lng: 0, w: 0, best: Infinity, n: 0 }
+      { lat: 0, lng: 0, w: 0, bestAcc: Infinity }
     );
 
     lockedGpsLat = weighted.lat / weighted.w;
@@ -1236,9 +1240,10 @@ function locateUserGPS() {
     lngEl().value = fmtCoord(lockedGpsLng);
 
     editorTitle().textContent = "Ajouter un arbre (GPS verrouillé)";
-    editorHint().textContent = `GPS verrouillé (≈${weighted.n} mesures, meilleure ±${Math.round(weighted.best)} m). Tu peux déplacer le point.`;
+    editorHint().textContent =
+      `Position GPS verrouillée (moyenne sur ${usable.length} mesures, meilleure précision ±${Math.round(weighted.bestAcc)} m).`;
 
-    // 📍 marqueur GPS visible + déplaçable
+    // 📍 point GPS visible + déplaçable
     if (gpsMarker) {
       gpsMarker.setLatLng([lockedGpsLat, lockedGpsLng]);
     } else {
@@ -1248,55 +1253,26 @@ function locateUserGPS() {
           className: "gps-marker",
           html: "📍",
           iconSize: [24, 24],
-          iconAnchor: [12, 24],
-        }),
+          iconAnchor: [12, 24]
+        })
       }).addTo(map);
 
       gpsMarker.on("dragend", () => {
-        const p = gpsMarker.getLatLng();
-        lockedGpsLat = p.lat;
-        lockedGpsLng = p.lng;
-        latEl().value = fmtCoord(p.lat);
-        lngEl().value = fmtCoord(p.lng);
-        editorHint().textContent = "Position ajustée manuellement (glisser le point)";
+        const pos = gpsMarker.getLatLng();
+        lockedGpsLat = pos.lat;
+        lockedGpsLng = pos.lng;
+
+        latEl().value = fmtCoord(pos.lat);
+        lngEl().value = fmtCoord(pos.lng);
+
+        editorHint().textContent = "Position ajustée manuellement (drag)";
       });
     }
 
-    // centrer une dernière fois
-    if (map) map.setView([lockedGpsLat, lockedGpsLng], Math.max(map.getZoom() || 0, 18));
+    if (map) map.setView([lockedGpsLat, lockedGpsLng], Math.max(map.getZoom(), 18));
     renderTreePreview(null);
     highlightListSelection();
-  }, GPS_SAMPLE_DURATION_MS);
-}
-
-  // =========================
-  // INIT
-if (gpsMarker) {
-  gpsMarker.setLatLng([lockedGpsLat, lockedGpsLng]);
-} else {
-  gpsMarker = L.marker(
-    [lockedGpsLat, lockedGpsLng],
-    {
-      draggable: true,
-      icon: L.divIcon({
-        className: "gps-marker",
-        html: "📍",
-        iconSize: [24, 24],
-        iconAnchor: [12, 24]
-      })
-    }
-  ).addTo(map);
-
-  gpsMarker.on("dragend", () => {
-    const pos = gpsMarker.getLatLng();
-    lockedGpsLat = pos.lat;
-    lockedGpsLng = pos.lng;
-
-    latEl().value = pos.lat.toFixed(6);
-    lngEl().value = pos.lng.toFixed(6);
-
-    editorHint().textContent = "Position ajustée manuellement";
-  });
+  }, 10000);
 }
 
   // =========================
@@ -1311,7 +1287,7 @@ if (gpsMarker) {
     map = L.map("map", {
       zoomControl: true,
       minZoom: 13,
-      maxZoom: 18,
+      maxZoom: 19,
     }).setView(MARCQ_CENTER, 14);
 
     
@@ -1325,6 +1301,33 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
    // 📍 Sélection emplacement (PC + mobile)
 function handleMapSelect(e) {
 
+  // ✅ si point GPS actif : clic carte = déplacer le point (plus simple que désactiver)
+  if (gpsMarker) {
+    const { lat, lng } = e.latlng;
+
+    // option: impose aussi dans la commune si contour chargé
+    if (cityLayer && typeof leafletPip !== "undefined") {
+      const inside = leafletPip.pointInLayer([lng, lat], cityLayer).length > 0;
+      if (!inside) {
+        alert("⛔ L’arbre doit être situé dans Marcq-en-Barœul");
+        return;
+      }
+    }
+
+    gpsMarker.setLatLng([lat, lng]);
+    lockedGpsLat = lat;
+    lockedGpsLng = lng;
+
+    latEl().value = fmtCoord(lat);
+    lngEl().value = fmtCoord(lng);
+
+    editorTitle().textContent = "Ajouter un arbre (GPS ajusté)";
+    editorHint().textContent = "Position GPS ajustée au clic (déplaçable).";
+    renderTreePreview(null);
+    highlightListSelection();
+    return;
+  }
+
   // si contour chargé + pip dispo => imposer dans la commune
   if (cityLayer && typeof leafletPip !== "undefined") {
     const inside = leafletPip.pointInLayer(
@@ -1335,9 +1338,6 @@ function handleMapSelect(e) {
     if (!inside) {
       alert("⛔ L’arbre doit être situé dans Marcq-en-Barœul");
       return;
-
-      // ⛔ si point GPS actif, clic carte désactivé
-if (gpsMarker) return;
 
     }
   }
@@ -1578,7 +1578,6 @@ if (undoBtn) {
 
 
     saveBtn().onclick = async () => {
-      // ✅ utiliser le GPS verrouillé si dispo (sinon champs)
       const lat = (lockedGpsLat ?? parseFloat(latEl().value));
       const lng = (lockedGpsLng ?? parseFloat(lngEl().value));
 
@@ -1643,14 +1642,8 @@ if (selectedId) {
 
   alert("Arbre mis à jour.");
 
-if (gpsMarker) {
-  map.removeLayer(gpsMarker);
-  gpsMarker = null;
-}
-
-lockedGpsLat = null;
-lockedGpsLng = null;
-return;
+  clearGpsLock();
+  return;
 
 }
 
@@ -1686,12 +1679,7 @@ pendingPhotos = [];
       galleryInput.value = "";
       photoStatus.textContent = "";
       alert("Arbre ajouté.");
-
-      // 🧹 reset GPS
-      if (gpsMarker) { try { map.removeLayer(gpsMarker); } catch (e) {} gpsMarker = null; }
-      lockedGpsLat = null;
-      lockedGpsLng = null;
-
+      clearGpsLock();
     };
   }
 async function loadTreesFromSheets() {
