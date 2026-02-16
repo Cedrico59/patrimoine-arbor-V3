@@ -71,6 +71,7 @@ var it = null;
   let lastDeletedTree = null;
   let pendingPhotos = [];
 let authToken = localStorage.getItem("authToken");
+let gpsMarker = null;
 
 // ------------------------------
 // 🔐 Déconnexion
@@ -1187,6 +1188,35 @@ function locateUserGPS() {
   );
 }
 
+  // 📍 POINT GPS VISUEL ET DÉPLAÇABLE
+if (gpsMarker) {
+  gpsMarker.setLatLng([lockedGpsLat, lockedGpsLng]);
+} else {
+  gpsMarker = L.marker(
+    [lockedGpsLat, lockedGpsLng],
+    {
+      draggable: true,
+      icon: L.divIcon({
+        className: "gps-marker",
+        html: "📍",
+        iconSize: [24, 24],
+        iconAnchor: [12, 24]
+      })
+    }
+  ).addTo(map);
+
+  gpsMarker.on("dragend", () => {
+    const pos = gpsMarker.getLatLng();
+    lockedGpsLat = pos.lat;
+    lockedGpsLng = pos.lng;
+
+    latEl().value = pos.lat.toFixed(6);
+    lngEl().value = pos.lng.toFixed(6);
+
+    editorHint().textContent = "Position ajustée manuellement";
+  });
+}
+
   // =========================
   // INIT
   // =========================
@@ -1223,6 +1253,10 @@ function handleMapSelect(e) {
     if (!inside) {
       alert("⛔ L’arbre doit être situé dans Marcq-en-Barœul");
       return;
+
+      // ⛔ si point GPS actif, clic carte désactivé
+if (gpsMarker) return;
+
     }
   }
 
@@ -1462,6 +1496,14 @@ if (undoBtn) {
 
 
     saveBtn().onclick = async () => {
+      if (gpsMarker) {
+    map.removeLayer(gpsMarker);
+    gpsMarker = null;
+  }
+
+  lockedGpsLat = null;
+  lockedGpsLng = null;
+      
       const lat = parseFloat(latEl().value);
       const lng = parseFloat(lngEl().value);
 
@@ -1525,7 +1567,16 @@ if (selectedId) {
   photoStatus.textContent = "";
 
   alert("Arbre mis à jour.");
-  return;
+
+if (gpsMarker) {
+  map.removeLayer(gpsMarker);
+  gpsMarker = null;
+}
+
+lockedGpsLat = null;
+lockedGpsLng = null;
+return;
+
 }
 
 
