@@ -73,6 +73,18 @@ var it = null;
 let authToken = localStorage.getItem("authToken");
 let gpsMarker = null;
 
+// =========================
+// 📍 GPS STATE
+// =========================
+let gpsWatchId = null;
+let gpsSamples = [];
+let lockedGpsLat = null;
+let lockedGpsLng = null;
+
+// réglages GPS
+const GPS_SAMPLE_DURATION_MS = 10000; // 10s
+const GPS_MAX_ACCURACY_M = 25;        // ignorer > 25m
+
 // ------------------------------
 // 🔐 Déconnexion
 // ------------------------------
@@ -1139,56 +1151,126 @@ function addOrUpdateMarker(t) {
 // 📍 GEOLOCALISATION GPS
 // =========================
 function locateUserGPS() {
-
   if (!navigator.geolocation) {
     alert("La géolocalisation n’est pas supportée sur cet appareil.");
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
+  // reset session
+  gpsSamples = [];
+  if (gpsWatchId !== null) {
+    try { navigator.geolocation.clearWatch(gpsWatchId); } catch (e) {}
+    gpsWatchId = null;
+  }
 
-      // 🗺️ centre la carte
-      map.setView([lat, lng], 17);
+  editorTitle().textContent = "Recherche position GPS…";
+  editorHint().textContent = `Stabilisation GPS (${Math.round(GPS_SAMPLE_DURATION_MS/1000)} secondes)…`;
+  selectedId = null;
+  deleteBtn().disabled = true;
+  clearForm(false);
 
-      // ✏️ prépare une nouvelle fiche
-      selectedId = null;
-      deleteBtn().disabled = true;
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords || {};
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
 
-      editorTitle().textContent = "Ajouter un arbre (GPS)";
-      editorHint().textContent = "Position GPS détectée automatiquement.";
+      // ignorer fixes trop mauvais
+      if (Number.isFinite(accuracy) && accuracy > GPS_MAX_ACCURACY_M) return;
 
-      clearForm(false);
-      latEl().value = fmtCoord(lat);
-      lngEl().value = fmtCoord(lng);
+      gpsSamples.push({
+        lat: latitude,
+        lng: longitude,
+        accuracy: Number.isFinite(accuracy) ? accuracy : GPS_MAX_ACCURACY_M
+      });
 
-      renderTreePreview(null);
-      highlightListSelection();
+      // feedback live
+      latEl().value = fmtCoord(latitude);
+      lngEl().value = fmtCoord(longitude);
+      if (map) map.setView([latitude, longitude], Math.max(map.getZoom() || 0, 18));
 
-      // 📍 marqueur temporaire
-      L.circleMarker([lat, lng], {
-        radius: 8,
-        color: "#00e5ff",
-        fillColor: "#00e5ff",
-        fillOpacity: 0.9
-      }).addTo(map);
-
+      // petit texte live
+      if (Number.isFinite(accuracy)) {
+        editorHint().textContent = `Stabilisation GPS… (±${Math.round(accuracy)} m)`;
+      }
     },
     (err) => {
-      alert("Impossible d’obtenir la position GPS.");
       console.error(err);
+      alert("Impossible d’obtenir la position GPS.");
     },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    }
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
   );
+
+  // arrêt + verrouillage après X secondes
+  setTimeout(() => {
+    if (gpsWatchId !== null) {
+      try { navigator.geolocation.clearWatch(gpsWatchId); } catch (e) {}
+      gpsWatchId = null;
+    }
+
+    if (!gpsSamples.length) {
+      editorTitle().textContent = "Ajouter un arbre";
+      editorHint().textContent = "GPS insuffisamment précis. Réessaye ou déplace le point manuellement.";
+      alert("GPS insuffisamment précis. Réessaye.");
+      return;
+    }
+
+    // ✅ moyenne pondérée par précision (plus précis = plus de poids)
+    const weighted = gpsSamples.reduce(
+      (acc, p) => {
+        const a = Math.max(1, p.accuracy || GPS_MAX_ACCURACY_M);
+        const w = 1 / (a * a);
+        acc.lat += p.lat * w;
+        acc.lng += p.lng * w;
+        acc.w += w;
+        acc.best = Math.min(acc.best, a);
+        acc.n += 1;
+        return acc;
+      },
+      { lat: 0, lng: 0, w: 0, best: Infinity, n: 0 }
+    );
+
+    lockedGpsLat = weighted.lat / weighted.w;
+    lockedGpsLng = weighted.lng / weighted.w;
+
+    latEl().value = fmtCoord(lockedGpsLat);
+    lngEl().value = fmtCoord(lockedGpsLng);
+
+    editorTitle().textContent = "Ajouter un arbre (GPS verrouillé)";
+    editorHint().textContent = `GPS verrouillé (≈${weighted.n} mesures, meilleure ±${Math.round(weighted.best)} m). Tu peux déplacer le point.`;
+
+    // 📍 marqueur GPS visible + déplaçable
+    if (gpsMarker) {
+      gpsMarker.setLatLng([lockedGpsLat, lockedGpsLng]);
+    } else {
+      gpsMarker = L.marker([lockedGpsLat, lockedGpsLng], {
+        draggable: true,
+        icon: L.divIcon({
+          className: "gps-marker",
+          html: "📍",
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+        }),
+      }).addTo(map);
+
+      gpsMarker.on("dragend", () => {
+        const p = gpsMarker.getLatLng();
+        lockedGpsLat = p.lat;
+        lockedGpsLng = p.lng;
+        latEl().value = fmtCoord(p.lat);
+        lngEl().value = fmtCoord(p.lng);
+        editorHint().textContent = "Position ajustée manuellement (glisser le point)";
+      });
+    }
+
+    // centrer une dernière fois
+    if (map) map.setView([lockedGpsLat, lockedGpsLng], Math.max(map.getZoom() || 0, 18));
+    renderTreePreview(null);
+    highlightListSelection();
+  }, GPS_SAMPLE_DURATION_MS);
 }
 
-  // 📍 POINT GPS VISUEL ET DÉPLAÇABLE
+  // =========================
+  // INIT
 if (gpsMarker) {
   gpsMarker.setLatLng([lockedGpsLat, lockedGpsLng]);
 } else {
@@ -1496,16 +1578,9 @@ if (undoBtn) {
 
 
     saveBtn().onclick = async () => {
-      if (gpsMarker) {
-    map.removeLayer(gpsMarker);
-    gpsMarker = null;
-  }
-
-  lockedGpsLat = null;
-  lockedGpsLng = null;
-      
-      const lat = parseFloat(latEl().value);
-      const lng = parseFloat(lngEl().value);
+      // ✅ utiliser le GPS verrouillé si dispo (sinon champs)
+      const lat = (lockedGpsLat ?? parseFloat(latEl().value));
+      const lng = (lockedGpsLng ?? parseFloat(lngEl().value));
 
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -1611,6 +1686,12 @@ pendingPhotos = [];
       galleryInput.value = "";
       photoStatus.textContent = "";
       alert("Arbre ajouté.");
+
+      // 🧹 reset GPS
+      if (gpsMarker) { try { map.removeLayer(gpsMarker); } catch (e) {} gpsMarker = null; }
+      lockedGpsLat = null;
+      lockedGpsLng = null;
+
     };
   }
 async function loadTreesFromSheets() {
