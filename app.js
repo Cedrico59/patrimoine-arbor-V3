@@ -2127,5 +2127,3 @@ window.exportElagagesPDF = async function () {
     alert("Erreur export PDF Élagages");
   }
 };
-
-
