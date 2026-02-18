@@ -704,6 +704,7 @@ persistAndRefresh(t.id);
 // 🏷️ TAMPON DISCRET : ID + DATE + GPS SUR PHOTO (bas gauche)
 // =========================
 async function stampPhotoWithMeta(file, lat, lng, treeId) {
+  file = await normalizePhotoToJpeg(file);
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -752,7 +753,7 @@ async function stampPhotoWithMeta(file, lat, lng, treeId) {
     img.onerror = reject;
     reader.onerror = reject;
 
-    file = await normalizePhotoToJpeg(file);
+  
 
     reader.readAsDataURL(file);
   });
