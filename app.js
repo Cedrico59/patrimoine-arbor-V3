@@ -775,14 +775,14 @@ const stampedDataUrl = await stampPhotoWithMeta(
 );
 
 
-    out.push({
-      id: crypto.randomUUID(), // ✅ CRITIQUE
-      name: f.name,
-      type: f.type,
-      size: f.size,
-      addedAt: Date.now(),
-      dataUrl: stampedDataUrl,
-    });
+  out.push({
+  id: crypto.randomUUID(),
+  name: f.name.replace(/\.(heic|png|jpg|jpeg)$/i, ".jpg"),
+  type: "image/jpeg", // ✅ FORCÉ
+  addedAt: Date.now(),
+  dataUrl: stampedDataUrl,
+});
+
   }
 
   return out;
