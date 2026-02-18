@@ -752,6 +752,8 @@ async function stampPhotoWithMeta(file, lat, lng, treeId) {
     img.onerror = reject;
     reader.onerror = reject;
 
+    file = await normalizePhotoToJpeg(file);
+
     reader.readAsDataURL(file);
   });
 }
@@ -2127,3 +2129,35 @@ window.exportElagagesPDF = async function () {
     alert("Erreur export PDF Élagages");
   }
 };
+
+async function normalizePhotoToJpeg(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(
+        (blob) => {
+          const fixedFile = new File(
+            [blob],
+            file.name.replace(/\.(heic|png|jpg|jpeg)$/i, ".jpg"),
+            { type: "image/jpeg" }
+          );
+          URL.revokeObjectURL(url);
+          resolve(fixedFile);
+        },
+        "image/jpeg",
+        0.9
+      );
+    };
+
+    img.src = url;
+  });
+}
