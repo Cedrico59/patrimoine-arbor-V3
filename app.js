@@ -4,6 +4,7 @@ function wireValidateIntervention() {
   const btn = document.getElementById("btnValiderIntervention");
   if (!btn) return;
 
+
   // 🔒 verrouillage visuel pour secteur
   if (!isAdmin()) {
     btn.disabled = true;
