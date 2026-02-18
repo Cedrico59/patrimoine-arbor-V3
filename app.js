@@ -753,8 +753,6 @@ async function stampPhotoWithMeta(file, lat, lng, treeId) {
     img.onerror = reject;
     reader.onerror = reject;
 
-  
-
     reader.readAsDataURL(file);
   });
 }
