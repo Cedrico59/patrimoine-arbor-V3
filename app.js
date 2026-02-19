@@ -1849,9 +1849,15 @@ disablePdfButtonsForPerilhon(); // 👈 ICI
 if (isEntreprisePerilhon() && !isAdmin()) {
 
   // ⛔ champs de saisie uniquement
- document.querySelectorAll(
+document.querySelectorAll(
   "input, textarea, select"
 ).forEach(el => {
+
+  // ⛔ NE PAS TOUCHER AU LOGIN
+  if (el.closest("#loginOverlay")) {
+    return;
+  }
+
   // ✅ AUTORISER LES INPUTS PHOTO
   if (el.id === "cameraInput" || el.id === "galleryInput") {
     el.disabled = false;
@@ -1862,6 +1868,7 @@ if (isEntreprisePerilhon() && !isAdmin()) {
   el.disabled = true;
   el.style.opacity = "0.5";
 });
+
 
 
 
