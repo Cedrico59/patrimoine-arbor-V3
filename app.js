@@ -10,12 +10,12 @@ function wireValidationEntreprise() {
   }
 
   btn.onclick = () => {
-    if (!selectedId) {
+    if (!window.selectedId) {
       alert("Sélectionne un arbre");
       return;
     }
 
-    const t = getTreeById(selectedId); // ✅ LIGNE MANQUANTE
+    const t = getTreeById(window.selectedId); // ✅ LIGNE MANQUANTE
     if (!t) return;
 
     // ✅ flag validation entreprise
@@ -33,7 +33,8 @@ function wireValidationEntreprise() {
       );
     }
 
-    persistAndRefresh(selectedId);
+    persistAndRefresh(window.selectedId);
+
 
     alert("✅ Validation entreprise Perilhon enregistrée");
   };
@@ -137,6 +138,7 @@ var it = null;
 
   let trees = [];
   let selectedId = null;
+  window.selectedId = null;
   let legendControl = null; // ✅ éviter double légende
   let lastDeletedTree = null;
   let pendingPhotos = [];
@@ -1058,6 +1060,8 @@ const stampedDataUrl = await stampPhotoWithMeta(
 
   pendingPhotos = [];
   selectedId = id;
+window.selectedId = id;
+
 
   const t = id ? getTreeById(id) : null;
 
