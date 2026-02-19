@@ -375,50 +375,35 @@ await loadTreesFromSheets();
   // =========================
   // ICONS / COLORS
   // =========================
-function createTreeIcon(color = "#4CAF50", etat = "") {
+function createTreeIcon(color = "#4CAF50", etat = "", validationEntreprise = false) {
   const g = "g_" + Math.random().toString(36).slice(2);
 
   let badge = "";
+  let cross = "";
 
- if (etat === "Dangereux (A abattre)") {
- badge = `
-  <circle class="pulse-ring danger"
-          cx="46" cy="11" r="8"
-          fill="#e53935"
-          opacity="0.75"
-          style="transform-origin:46px 10px; transform-box:fill-box;" />
-  <circle cx="46" cy="10" r="8" fill="#e53935" stroke="#000000ff" stroke-width="2"/>`;
+  // 🔴 abattage
+  if (etat === "Dangereux (A abattre)") {
+    badge = `
+      <circle class="pulse-ring danger"
+        cx="46" cy="11" r="8"
+        fill="#e53935" opacity="0.75"/>
+      <circle cx="46" cy="10" r="8"
+        fill="#e53935" stroke="#000" stroke-width="2"/>`;
+  }
 
-}
-
-let cross = "";
-
-if (t.validationEntreprise === true) {
-  cross = `
-    <line x1="18" y1="18" x2="46" y2="46"
-          stroke="white" stroke-width="4"/>
-    <line x1="46" y1="18" x2="18" y2="46"
-          stroke="white" stroke-width="4"/>
-  `;
-}
-
-
-
-
+  // 🟠 autres états (tu peux garder les tiens)
   if (etat === "A surveiller") {
-    badge = `<circle cx="46" cy="10" r="8" fill="#fb8c00" stroke="#000000ff" stroke-width="2"/>`;
+    badge = `<circle cx="46" cy="10" r="8" fill="#fb8c00" stroke="#000" stroke-width="2"/>`;
   }
 
-    if (etat === "A élaguer (URGENT)") {
-    badge = `<circle cx="46" cy="10" r="8" fill="#FFFF00" stroke="#000000ff" stroke-width="2"/>`;
-  }
-
-  if (etat === "A élaguer (Moyen)") {
-    badge = `<circle cx="46" cy="10" r="8" fill="#00FFFF" stroke="#000000ff" stroke-width="2"/>`;
-  }
-
-  if (etat === "A élaguer (Faible)") {
-    badge = `<circle cx="46" cy="10" r="8" fill="#43a047" stroke="#000000ff" stroke-width="2"/>`;
+  // ❌ CROIX BLANCHE ENTREPRISE
+  if (validationEntreprise === true) {
+    cross = `
+      <line x1="18" y1="18" x2="46" y2="46"
+            stroke="white" stroke-width="4"/>
+      <line x1="46" y1="18" x2="18" y2="46"
+            stroke="white" stroke-width="4"/>
+    `;
   }
 
   return L.divIcon({
@@ -437,13 +422,13 @@ if (t.validationEntreprise === true) {
         <circle cx="20" cy="30" r="14" fill="url(#${g})"/>
         <circle cx="44" cy="30" r="14" fill="url(#${g})"/>
 
-        <!-- ✅ CROIX BLANCHE ENTRE FEUILLAGE ET BADGE -->
-${cross}
+        <!-- ✅ CROIX ENTREPRISE -->
+        ${cross}
 
         <!-- tronc -->
         <rect x="28" y="38" width="8" height="18" rx="2" fill="#6D4C41"/>
 
-        <!-- ✅ badge ÉTAT AU-DESSUS -->
+        <!-- badge état -->
         ${badge}
       </svg>
     `,
@@ -452,6 +437,7 @@ ${cross}
     popupAnchor: [0, -36],
   });
 }
+
 
 function getTreeIconScale(zoom) {
   if (zoom >= 17) return 1;     // zoom proche
@@ -1094,9 +1080,11 @@ function addOrUpdateMarker(t) {
   let m = markers.get(t.id);
 
   const icon = createTreeIcon(
-    getColorFromSecteur(t.secteur),
-    t.etat
-  );
+  getColorFromSecteur(t.secteur),
+  t.etat,
+  t.validationEntreprise === true
+);
+
 
   if (!m) {
     m = L.marker([t.lat, t.lng], { icon }).addTo(map);
