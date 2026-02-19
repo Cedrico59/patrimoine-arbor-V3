@@ -1,8 +1,35 @@
+/* ===== VALIDATION ENTREPRISE ===== */
+function wireValidationEntreprise() {
+  const btn = document.getElementById("btnValidationEntreprise");
+  if (!btn) return;
+
+  // 🔒 visibilité
+  if (!canValidateEntreprise()) {
+    btn.style.display = "none";
+    return;
+  }
+
+  btn.onclick = () => {
+    if (!selectedId) {
+      alert("Sélectionne un arbre");
+      return;
+    }
+
+    const t = getTreeById(selectedId);
+    if (!t) return;
+
+    t.validationEntreprise = true;
+
+    persistAndRefresh(selectedId);
+    alert("✅ Validation entreprise Perilhon enregistrée");
+  };
+}
 
 /* ===== VALIDER INTERVENTION ===== */
 function wireValidateIntervention() {
   const btn = document.getElementById("btnValiderIntervention");
   if (!btn) return;
+
 
 
   // 🔒 verrouillage visuel pour secteur
@@ -15,18 +42,33 @@ function wireValidateIntervention() {
   }
 
   // 👑 ADMIN SEUL
-  btn.onclick = () => {
-    const txt = historyInterventionsEl().value.trim();
-    if (!txt) {
-      alert("Aucune intervention à valider.");
-      return;
-    }
+ btn.onclick = () => {
+  const txt = historyInterventionsEl().value.trim();
+  if (!txt) {
+    alert("Aucune intervention à valider.");
+    return;
+  }
 
-    const now = new Date().toLocaleString("fr-FR");
-    historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
+  const now = new Date().toLocaleString("fr-FR");
+  historyInterventionsEl().value = `🛠 ${now} — ${txt}`;
 
-    alert("Intervention validée. Pense à enregistrer.");
-  };
+  // 🔽 🔽 🔽 ICI EXACTEMENT 🔽 🔽 🔽
+  const t = getTreeById(selectedId);
+  if (!t) return;
+
+  // ❌ enlever validation entreprise
+  t.validationEntreprise = false;
+
+  // ❌ enlever pastille SAUF abattage
+  if (t.etat !== "Dangereux (A abattre)") {
+    t.etat = "";
+  }
+
+  persistAndRefresh(selectedId);
+
+  alert("✅ Intervention validée. Pense à enregistrer.");
+};
+
 }
 
 
@@ -349,6 +391,18 @@ function createTreeIcon(color = "#4CAF50", etat = "") {
 
 }
 
+let cross = "";
+
+if (t.validationEntreprise === true) {
+  cross = `
+    <line x1="18" y1="18" x2="46" y2="46"
+          stroke="white" stroke-width="4"/>
+    <line x1="46" y1="18" x2="18" y2="46"
+          stroke="white" stroke-width="4"/>
+  `;
+}
+
+
 
 
   if (etat === "A surveiller") {
@@ -382,6 +436,9 @@ function createTreeIcon(color = "#4CAF50", etat = "") {
         <circle cx="32" cy="24" r="18" fill="url(#${g})"/>
         <circle cx="20" cy="30" r="14" fill="url(#${g})"/>
         <circle cx="44" cy="30" r="14" fill="url(#${g})"/>
+
+        <!-- ✅ CROIX BLANCHE ENTRE FEUILLAGE ET BADGE -->
+${cross}
 
         <!-- tronc -->
         <rect x="28" y="38" width="8" height="18" rx="2" fill="#6D4C41"/>
@@ -1782,6 +1839,17 @@ async function startApp() {
   wireValidateIntervention();
   applyTravauxLock();
 
+// 🔒 verrouillage total entreprise Perilhon
+if (isEntreprisePerilhon()) {
+  document.querySelectorAll(
+    "input, textarea, select, button:not(#btnValidationEntreprise)"
+  ).forEach(el => {
+    el.disabled = true;
+    el.style.opacity = "0.5";
+  });
+}
+
+
   await loadQuartiersGeoJSON();
   await loadCityContourAndLock();
 
@@ -2160,4 +2228,14 @@ async function normalizePhotoToJpeg(file) {
 
     img.src = url;
   });
+}
+function isEntreprisePerilhon() {
+  return (
+    (localStorage.getItem("userRole") || "").toLowerCase() === "entreprise" &&
+    (localStorage.getItem("userSecteur") || "") === "Perilhon"
+  );
+}
+
+function canValidateEntreprise() {
+  return isAdmin() || isEntreprisePerilhon();
 }
