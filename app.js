@@ -15,26 +15,30 @@ function wireValidationEntreprise() {
       return;
     }
 
+    const t = getTreeById(selectedId); // ✅ LIGNE MANQUANTE
+    if (!t) return;
+
+    // ✅ flag validation entreprise
     t.validationEntreprise = true;
 
-// 🔥 FORCER RAFRAÎCHISSEMENT DU MARKER
-const m = markers.get(t.id);
-if (m) {
-  m.setIcon(
-    createTreeIcon(
-      getColorFromSecteur(t.secteur),
-      t.etat,
-      true // 👈 validationEntreprise
-    )
-  );
-}
+    // 🔥 rafraîchissement immédiat du marker
+    const m = markers.get(t.id);
+    if (m) {
+      m.setIcon(
+        createTreeIcon(
+          getColorFromSecteur(t.secteur),
+          t.etat,
+          true
+        )
+      );
+    }
 
-persistAndRefresh(selectedId);
+    persistAndRefresh(selectedId);
 
-alert("✅ Validation entreprise Perilhon enregistrée");
-
+    alert("✅ Validation entreprise Perilhon enregistrée");
   };
 }
+
 
 /* ===== VALIDER INTERVENTION ===== */
 function wireValidateIntervention() {
