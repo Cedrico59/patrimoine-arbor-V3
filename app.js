@@ -1843,18 +1843,27 @@ async function startApp() {
   wireUI();
   wireValidateIntervention();
   applyTravauxLock();
-
+disablePdfButtonsForPerilhon(); // 👈 ICI
 
 // 🔒 Verrouillage métier pour entreprise Perilhon (consultation OK)
 if (isEntreprisePerilhon() && !isAdmin()) {
 
   // ⛔ champs de saisie uniquement
-  document.querySelectorAll(
-    "input, textarea, select"
-  ).forEach(el => {
-    el.disabled = true;
-    el.style.opacity = "0.5";
-  });
+ document.querySelectorAll(
+  "input, textarea, select"
+).forEach(el => {
+  // ✅ AUTORISER LES INPUTS PHOTO
+  if (el.id === "cameraInput" || el.id === "galleryInput") {
+    el.disabled = false;
+    el.style.opacity = "";
+    return;
+  }
+
+  el.disabled = true;
+  el.style.opacity = "0.5";
+});
+
+
 
   // ⛔ boutons MÉTIER uniquement
   const forbiddenButtons = [
@@ -2271,4 +2280,24 @@ function canValidateEntreprise() {
 
 function canConsultPastilleTree() {
   return isAdmin() || isEntreprisePerilhon();
+}
+function disablePdfButtonsForPerilhon() {
+  if (!isEntreprisePerilhon()) return;
+
+  const pdfButtons = [
+    'button[onclick^="exportArbrePDF"]',
+    'button[onclick^="exportAnnuelPDF"]',
+    'button[onclick^="exportSurveillancePDF"]',
+    'button[onclick^="exportAbattagesPDF"]',
+    'button[onclick^="exportElagagesPDF"]'
+  ];
+
+  pdfButtons.forEach(sel => {
+    document.querySelectorAll(sel).forEach(btn => {
+      btn.disabled = true;
+      btn.style.opacity = "0.45";
+      btn.style.cursor = "not-allowed";
+      btn.title = "Action réservée à l’administrateur";
+    });
+  });
 }
