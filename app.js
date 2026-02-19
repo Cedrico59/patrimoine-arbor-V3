@@ -1827,8 +1827,9 @@ async function startApp() {
   wireValidateIntervention();
   applyTravauxLock();
 
-// 🔒 verrouillage total entreprise Perilhon
-if (isEntreprisePerilhon()) {
+
+// 🔒 verrouillage interface UNIQUEMENT pour entreprise Perilhon (JAMAIS admin)
+if (isEntreprisePerilhon() && !isAdmin()) {
   document.querySelectorAll(
     "input, textarea, select, button:not(#btnValidationEntreprise)"
   ).forEach(el => {
@@ -1836,6 +1837,7 @@ if (isEntreprisePerilhon()) {
     el.style.opacity = "0.5";
   });
 }
+
 
 
   await loadQuartiersGeoJSON();
@@ -2219,10 +2221,12 @@ async function normalizePhotoToJpeg(file) {
 }
 function isEntreprisePerilhon() {
   return (
+    !isAdmin() &&
     (localStorage.getItem("userRole") || "").toLowerCase() === "entreprise" &&
     (localStorage.getItem("userSecteur") || "") === "Perilhon"
   );
 }
+
 
 function canValidateEntreprise() {
   return isAdmin() || isEntreprisePerilhon();
