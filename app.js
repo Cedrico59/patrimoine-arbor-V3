@@ -1868,9 +1868,12 @@ async function startApp() {
   initMap();
   addLegendToMap();
   wireUI();
+  wireValidationEntreprise();
   wireValidateIntervention();
   applyTravauxLock();
-disablePdfButtonsForPerilhon(); // 👈 ICI
+  disablePdfButtonsForPerilhon(); // 👈 ICI
+
+
 
 // 🔒 Verrouillage métier pour entreprise Perilhon (consultation OK)
 if (isEntreprisePerilhon() && !isAdmin()) {
