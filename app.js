@@ -374,6 +374,7 @@ window.getTreeById = getTreeById; // ✅ EXPOSITION GLOBALE
     renderSecteurCount();
     if (focusId) setSelected(focusId);
   }
+window.persistAndRefresh = persistAndRefresh;
 
 async function syncToSheets(treeObj) {
   try {
