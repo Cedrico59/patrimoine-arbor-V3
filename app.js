@@ -1828,15 +1828,35 @@ async function startApp() {
   applyTravauxLock();
 
 
-// 🔒 verrouillage interface UNIQUEMENT pour entreprise Perilhon (JAMAIS admin)
+// 🔒 Verrouillage métier pour entreprise Perilhon (consultation OK)
 if (isEntreprisePerilhon() && !isAdmin()) {
+
+  // ⛔ champs de saisie uniquement
   document.querySelectorAll(
-    "input, textarea, select, button:not(#btnValidationEntreprise)"
+    "input, textarea, select"
   ).forEach(el => {
     el.disabled = true;
     el.style.opacity = "0.5";
   });
+
+  // ⛔ boutons MÉTIER uniquement
+  const forbiddenButtons = [
+    "#saveBtn",
+    "#deleteBtn",
+    "#importBtn",
+    "#exportBtn",
+    "#btnValiderIntervention"
+  ];
+
+  forbiddenButtons.forEach(sel => {
+    const b = document.querySelector(sel);
+    if (b) {
+      b.disabled = true;
+      b.style.opacity = "0.5";
+    }
+  });
 }
+
 
 
 
