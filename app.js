@@ -1102,11 +1102,15 @@ function addOrUpdateMarker(t) {
   if (!m) {
     m = L.marker([t.lat, t.lng], { icon }).addTo(map);
 
-    m.on("click", () => {
-      if(!isAdmin() && isPastilleTree(t)) { alert('⛔ Arbre verrouillé (pastille) : sélection réservée admin'); return; }
-        setSelected(t.id);
-      highlightListSelection();
-    });
+   m.on("click", () => {
+  if (!canConsultPastilleTree() && isPastilleTree(t)) {
+    alert("⛔ Arbre verrouillé (pastille)");
+    return;
+  }
+  setSelected(t.id);
+  highlightListSelection();
+});
+
 
     markers.set(t.id, m);
   } else {
@@ -2254,7 +2258,7 @@ async function normalizePhotoToJpeg(file) {
 }
 function isEntreprisePerilhon() {
   return (
-    !isAdmin() &&
+    
     (localStorage.getItem("userRole") || "").toLowerCase() === "entreprise" &&
     (localStorage.getItem("userSecteur") || "") === "Perilhon"
   );
@@ -2262,5 +2266,9 @@ function isEntreprisePerilhon() {
 
 
 function canValidateEntreprise() {
+  return isAdmin() || isEntreprisePerilhon();
+}
+
+function canConsultPastilleTree() {
   return isAdmin() || isEntreprisePerilhon();
 }
