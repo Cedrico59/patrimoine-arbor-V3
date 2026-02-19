@@ -15,13 +15,24 @@ function wireValidationEntreprise() {
       return;
     }
 
-    const t = getTreeById(selectedId);
-    if (!t) return;
-
     t.validationEntreprise = true;
 
-    persistAndRefresh(selectedId);
-    alert("✅ Validation entreprise Perilhon enregistrée");
+// 🔥 FORCER RAFRAÎCHISSEMENT DU MARKER
+const m = markers.get(t.id);
+if (m) {
+  m.setIcon(
+    createTreeIcon(
+      getColorFromSecteur(t.secteur),
+      t.etat,
+      true // 👈 validationEntreprise
+    )
+  );
+}
+
+persistAndRefresh(selectedId);
+
+alert("✅ Validation entreprise Perilhon enregistrée");
+
   };
 }
 
@@ -58,6 +69,18 @@ function wireValidateIntervention() {
 
   // ❌ enlever validation entreprise
   t.validationEntreprise = false;
+
+  const m = markers.get(t.id);
+if (m) {
+  m.setIcon(
+    createTreeIcon(
+      getColorFromSecteur(t.secteur),
+      t.etat,
+      false
+    )
+  );
+}
+
 
   // ❌ enlever pastille SAUF abattage
   if (t.etat !== "Dangereux (A abattre)") {
