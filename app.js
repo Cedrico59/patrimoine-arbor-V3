@@ -363,6 +363,9 @@ window.postToGAS = postToGAS;
   function getTreeById(id) {
     return trees.find((t) => t.id === id);
   }
+  
+window.getTreeById = getTreeById; // ✅ EXPOSITION GLOBALE
+
 
   function loadTrees() {
     try {
